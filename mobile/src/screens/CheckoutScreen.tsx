@@ -8,11 +8,11 @@ import {
   useColorScheme,
   Platform,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   ScrollView,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../utils/api';
 import { useCart } from '../context/CartContext';
@@ -21,7 +21,6 @@ export default function CheckoutScreen({ navigation }: any) {
   const { cart, getCartTotal, clearCart } = useCart();
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Shipping Form State
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [zipCode, setZipCode] = useState('');
@@ -40,11 +39,11 @@ export default function CheckoutScreen({ navigation }: any) {
 
   const handlePayment = async () => {
     if (!address || !city || !zipCode) {
-      if (Platform.OS === 'web') {
-        window.alert('Error: Please fill out all shipping details.');
-      } else {
-        Alert.alert('Error', 'Please fill out all shipping details.');
-      }
+      Toast.show({
+        type: 'error',
+        text1: 'Missing Information',
+        text2: 'Please fill out all shipping details.',
+      });
       return;
     }
 
@@ -63,24 +62,20 @@ export default function CheckoutScreen({ navigation }: any) {
         quantity: item.quantity
       }));
 
-      // Execute the ACID transaction
       await api.post('/orders/checkout', {
         userId: user.id,
         cartItems,
-        // In a real app, you would pass shipping details here too
       });
 
       if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Platform-specific alerts!
-      if (Platform.OS === 'web') {
-        window.alert('Order Confirmed! Your secure transaction was successful.');
-      } else {
-        Alert.alert('Order Confirmed', 'Your secure transaction was successful!');
-      }
+      Toast.show({
+        type: 'success',
+        text1: 'Order Confirmed',
+        text2: 'Your secure transaction was successful!',
+      });
 
       clearCart();
-      // Reset the stack to Home so the user can't swipe back to a completed checkout
       navigation.reset({
         index: 0,
         routes: [{ name: 'Home' }],
@@ -91,11 +86,11 @@ export default function CheckoutScreen({ navigation }: any) {
       
       const errorMessage = error.response?.data?.message || 'Transaction failed. Please try again.';
       
-      if (Platform.OS === 'web') {
-        window.alert(`Checkout Error: ${errorMessage}`);
-      } else {
-        Alert.alert('Checkout Error', errorMessage);
-      }
+      Toast.show({
+        type: 'error',
+        text1: 'Checkout Error',
+        text2: errorMessage,
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -190,15 +185,7 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   summaryText: { fontSize: 16 },
   summaryTotal: { fontSize: 18, fontWeight: '700' },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-    borderTopWidth: 1,
-  },
+  bottomBar: { position: 'absolute', bottom: 0, width: '100%', paddingHorizontal: 24, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 34 : 24, borderTopWidth: 1 },
   payButton: { height: 54, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   payButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
 });

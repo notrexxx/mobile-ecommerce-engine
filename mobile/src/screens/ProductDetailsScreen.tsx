@@ -8,9 +8,9 @@ import {
   TouchableOpacity,
   useColorScheme,
   Platform,
-  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import { useCart } from '../context/CartContext';
 
 export default function ProductDetailsScreen({ route, navigation }: any) {
@@ -31,13 +31,18 @@ export default function ProductDetailsScreen({ route, navigation }: any) {
   const handleAddToBag = async () => {
     addToCart(product);
     
-    // Provide instant feedback across all platforms
-    if (Platform.OS === 'web') {
-      window.alert(`${product.name} has been added to your bag.`);
-    } else {
+    if (Platform.OS !== 'web') {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Added to Bag', `${product.name} has been added to your bag.`);
     }
+
+    // Trigger the beautiful cross-platform Toast
+    Toast.show({
+      type: 'success',
+      text1: 'Added to Bag',
+      text2: `${product.name} is now in your cart.`,
+      position: 'top',
+      visibilityTime: 3000,
+    });
   };
 
   return (
@@ -61,7 +66,6 @@ export default function ProductDetailsScreen({ route, navigation }: any) {
         </View>
       </ScrollView>
 
-      {/* Floating Premium Action Bar */}
       <View style={[styles.bottomBar, { backgroundColor: theme.background, borderColor: theme.surface }]}>
         <View style={styles.centerWrapper}>
           <TouchableOpacity 
@@ -78,80 +82,19 @@ export default function ProductDetailsScreen({ route, navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 120,
-  },
-  centerWrapper: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  responsiveContent: {
-    width: '100%',
-    maxWidth: 800,
-  },
-  image: {
-    width: '100%',
-    height: 400,
-    resizeMode: 'cover',
-    backgroundColor: '#E5E5EA',
-  },
-  infoContainer: {
-    padding: 24,
-  },
-  category: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  name: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 12,
-    lineHeight: 34,
-  },
-  price: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 24,
-  },
-  divider: {
-    height: 1,
-    width: '100%',
-    marginBottom: 24,
-  },
-  descriptionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-    borderTopWidth: 1,
-  },
-  button: {
-    width: '100%',
-    maxWidth: 400,
-    height: 54,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
-  },
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 120 },
+  centerWrapper: { width: '100%', alignItems: 'center' },
+  responsiveContent: { width: '100%', maxWidth: 800 },
+  image: { width: '100%', height: 400, resizeMode: 'cover', backgroundColor: '#E5E5EA' },
+  infoContainer: { padding: 24 },
+  category: { fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 8 },
+  name: { fontSize: 28, fontWeight: '700', marginBottom: 12, lineHeight: 34 },
+  price: { fontSize: 22, fontWeight: '600', marginBottom: 24 },
+  divider: { height: 1, width: '100%', marginBottom: 24 },
+  descriptionTitle: { fontSize: 17, fontWeight: '600', marginBottom: 8 },
+  description: { fontSize: 15, lineHeight: 22 },
+  bottomBar: { position: 'absolute', bottom: 0, width: '100%', paddingHorizontal: 24, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 34 : 24, borderTopWidth: 1 },
+  button: { width: '100%', maxWidth: 400, height: 54, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  buttonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
 });

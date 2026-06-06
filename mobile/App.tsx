@@ -2,6 +2,7 @@ import React from 'react';
 import { useColorScheme } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import Toast from 'react-native-toast-message'; // <-- Imported Toast
 import { CartProvider } from './src/context/CartContext';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -69,6 +70,8 @@ export default function App() {
           />
         </Stack.Navigator>
       </NavigationContainer>
+      {/* Toast component mounted at the very root to overlay all screens */}
+      <Toast />
     </CartProvider>
   );
 }
