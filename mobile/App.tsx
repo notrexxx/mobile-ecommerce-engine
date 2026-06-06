@@ -7,6 +7,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProductDetailsScreen from './src/screens/ProductDetailsScreen';
+import CartScreen from './src/screens/CartScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -47,6 +48,14 @@ export default function App() {
               title: '',
               headerTransparent: true,
               headerTintColor: '#0A84FF'
+            }} 
+          />
+          <Stack.Screen 
+            name="Cart" 
+            component={CartScreen} 
+            options={{ 
+              title: 'Your Bag', 
+              headerTintColor: '#0A84FF' 
             }} 
           />
         </Stack.Navigator>

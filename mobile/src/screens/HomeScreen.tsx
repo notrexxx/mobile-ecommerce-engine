@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,16 @@ import {
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../utils/api';
-import { Product } from '../context/CartContext';
+import { Product, useCart } from '../context/CartContext';
 
 export default function HomeScreen({ navigation }: any) {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Bring in the global cart to read the item count
+  const { getCartCount } = useCart();
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -26,7 +30,29 @@ export default function HomeScreen({ navigation }: any) {
     surface: isDark ? '#1C1C1E' : '#FFFFFF',
     text: isDark ? '#FFFFFF' : '#000000',
     subtext: isDark ? '#EBEBF599' : '#3C3C4399',
+    primary: '#0A84FF',
   };
+
+  // Dynamically inject the Cart button into the native header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('Cart')}
+          style={{ marginRight: Platform.OS === 'web' ? 16 : 0 }}
+        >
+          <View>
+            <Ionicons name="bag-outline" size={24} color={theme.primary} />
+            {getCartCount() > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{getCartCount()}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, getCartCount, theme.primary]);
 
   useEffect(() => {
     fetchProducts();
@@ -47,7 +73,6 @@ export default function HomeScreen({ navigation }: any) {
     if (Platform.OS !== 'web') {
       await Haptics.selectionAsync();
     }
-    // Route execution passing payload context down the stack
     navigation.navigate('ProductDetails', { product });
   };
 
@@ -102,4 +127,18 @@ const styles = StyleSheet.create({
   category: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
   productName: { fontSize: 15, fontWeight: '600', marginBottom: 8, lineHeight: 20, height: 40 },
   price: { fontSize: 17, fontWeight: '700' },
+  badge: {
+    position: 'absolute',
+    right: -6,
+    top: -6,
+    backgroundColor: '#FF453A',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold', paddingHorizontal: 4 },
 });
