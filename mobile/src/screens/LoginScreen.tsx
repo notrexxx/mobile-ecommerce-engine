@@ -47,12 +47,9 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      // Send authenticating payload to NestJS backend
       const response = await api.post('/auth/login', { email, password });
-      
       const { access_token, user } = response.data;
 
-      // Securely store the JWT session token on device storage
       await AsyncStorage.setItem('auth_token', access_token);
       await AsyncStorage.setItem('user_profile', JSON.stringify(user));
 
@@ -78,47 +75,50 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={[styles.container, { backgroundColor: theme.background }]}
     >
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
-        <Text style={[styles.subtitle, { color: theme.subtext }]}>
-          Sign in to access your commerce dashboard.
-        </Text>
+      {/* Wrapper to center the content horizontally on web */}
+      <View style={styles.centerWrapper}>
+        <View style={styles.content}>
+          <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
+          <Text style={[styles.subtitle, { color: theme.subtext }]}>
+            Sign in to access your commerce dashboard.
+          </Text>
 
-        <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <TextInput
-            style={[styles.input, { color: theme.text }]}
-            placeholder="Email"
-            placeholderTextColor={theme.subtext}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-            editable={!isLoading}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <TextInput
-            style={[styles.input, { color: theme.text }]}
-            placeholder="Password"
-            placeholderTextColor={theme.subtext}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            editable={!isLoading}
-          />
+          <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <TextInput
+              style={[styles.input, { color: theme.text }]}
+              placeholder="Email"
+              placeholderTextColor={theme.subtext}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              editable={!isLoading}
+            />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <TextInput
+              style={[styles.input, { color: theme.text }]}
+              placeholder="Password"
+              placeholderTextColor={theme.subtext}
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              editable={!isLoading}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.button, { backgroundColor: theme.primary, opacity: isLoading ? 0.6 : 1 }]}
+            activeOpacity={0.8}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.buttonText}>Sign In</Text>
+            )}
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: theme.primary, opacity: isLoading ? 0.6 : 1 }]}
-          activeOpacity={0.8}
-          onPress={handleLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.buttonText}>Sign In</Text>
-          )}
-        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -128,9 +128,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  centerWrapper: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center', // This centers the form horizontally on large screens
+  },
+  content: {
+    width: '100%',
+    maxWidth: 400, // Crucial: Constrains the width on Web/Tablets so it never stretches too far
     paddingHorizontal: 24,
   },
   title: {
