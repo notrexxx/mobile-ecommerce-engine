@@ -8,12 +8,17 @@ import {
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../utils/api';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Dynamic Theme Detection
   const colorScheme = useColorScheme();
@@ -29,13 +34,43 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields.');
+      return;
+    }
+
     // Premium haptic feedback on button press
     if (Platform.OS !== 'web') {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     
-    // We will connect this to NestJS next!
-    console.log('Login triggered for:', email);
+    setIsLoading(true);
+
+    try {
+      // Send authenticating payload to NestJS backend
+      const response = await api.post('/auth/login', { email, password });
+      
+      const { access_token, user } = response.data;
+
+      // Securely store the JWT session token on device storage
+      await AsyncStorage.setItem('auth_token', access_token);
+      await AsyncStorage.setItem('user_profile', JSON.stringify(user));
+
+      if (Platform.OS !== 'web') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      Alert.alert('Success', `Welcome back, ${user.email}!`);
+    } catch (error: any) {
+      if (Platform.OS !== 'web') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+
+      const errorMessage = error.response?.data?.message || 'Unable to connect to server.';
+      Alert.alert('Authentication Failed', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -58,6 +93,7 @@ export default function LoginScreen() {
             autoCapitalize="none"
             value={email}
             onChangeText={setEmail}
+            editable={!isLoading}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <TextInput
@@ -67,15 +103,21 @@ export default function LoginScreen() {
             secureTextEntry
             value={password}
             onChangeText={setPassword}
+            editable={!isLoading}
           />
         </View>
 
         <TouchableOpacity 
-          style={[styles.button, { backgroundColor: theme.primary }]}
+          style={[styles.button, { backgroundColor: theme.primary, opacity: isLoading ? 0.6 : 1 }]}
           activeOpacity={0.8}
           onPress={handleLogin}
+          disabled={isLoading}
         >
-          <Text style={styles.buttonText}>Sign In</Text>
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>Sign In</Text>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
