@@ -120,6 +120,18 @@ export default function LoginScreen({ navigation }: any) {
               <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
+
+          {/* New Footer Navigation to Registration Screen */}
+          <TouchableOpacity 
+            style={styles.footerButton} 
+            onPress={() => navigation.navigate('Register')}
+            disabled={isLoading}
+          >
+            <Text style={[styles.footerText, { color: theme.text }]}>
+              Don't have an account? <Text style={{ color: theme.primary, fontWeight: '600' }}>Sign Up</Text>
+            </Text>
+          </TouchableOpacity>
+
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -133,11 +145,11 @@ const styles = StyleSheet.create({
   centerWrapper: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center', // This centers the form horizontally on large screens
+    alignItems: 'center', 
   },
   content: {
     width: '100%',
-    maxWidth: 400, // Crucial: Constrains the width on Web/Tablets so it never stretches too far
+    maxWidth: 400, 
     paddingHorizontal: 24,
   },
   title: {
@@ -181,5 +193,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '600',
+  },
+  footerButton: {
+    alignItems: 'center',
+    marginTop: 24,
+    paddingVertical: 8,
+  },
+  footerText: {
+    fontSize: 15,
   },
 });
