@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   useColorScheme,
   Platform,
+  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useCart } from '../context/CartContext';
@@ -30,8 +31,12 @@ export default function ProductDetailsScreen({ route, navigation }: any) {
   const handleAddToBag = async () => {
     addToCart(product);
     
-    if (Platform.OS !== 'web') {
+    // Provide instant feedback across all platforms
+    if (Platform.OS === 'web') {
+      window.alert(`${product.name} has been added to your bag.`);
+    } else {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Added to Bag', `${product.name} has been added to your bag.`);
     }
   };
 
