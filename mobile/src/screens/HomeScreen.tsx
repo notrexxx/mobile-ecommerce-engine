@@ -1,0 +1,155 @@
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  Image,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  useColorScheme,
+  Platform,
+} from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { api } from '../utils/api';
+
+// Define the TypeScript shape of our backend data
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl: string;
+  category: string;
+}
+
+export default function HomeScreen() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const theme = {
+    background: isDark ? '#000000' : '#F2F2F7',
+    surface: isDark ? '#1C1C1E' : '#FFFFFF',
+    text: isDark ? '#FFFFFF' : '#000000',
+    subtext: isDark ? '#EBEBF599' : '#3C3C4399',
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      // Fetch the seeded data from NestJS
+      const response = await api.get('/products');
+      setProducts(response.data);
+    } catch (error) {
+      console.error('Failed to fetch products', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleProductPress = async (productName: string) => {
+    if (Platform.OS !== 'web') {
+      await Haptics.selectionAsync();
+    }
+    // We will connect this to a Product Details screen in Step 9!
+    console.log(`Navigating to ${productName}`);
+  };
+
+  const renderProductCard = ({ item }: { item: Product }) => (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: theme.surface }]}
+      activeOpacity={0.9}
+      onPress={() => handleProductPress(item.name)}
+    >
+      <Image source={{ uri: item.imageUrl }} style={styles.productImage} />
+      <View style={styles.cardContent}>
+        <Text style={[styles.category, { color: theme.subtext }]}>{item.category.toUpperCase()}</Text>
+        <Text style={[styles.productName, { color: theme.text }]} numberOfLines={2}>
+          {item.name}
+        </Text>
+        <Text style={[styles.price, { color: theme.text }]}>${item.price.toFixed(2)}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color="#0A84FF" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <FlatList
+        data={products}
+        keyExtractor={(item) => item.id}
+        renderItem={renderProductCard}
+        numColumns={2}
+        contentContainerStyle={styles.listContainer}
+        columnWrapperStyle={styles.row}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listContainer: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  row: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  card: {
+    width: '48%', // Allows two columns with spacing
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  productImage: {
+    width: '100%',
+    height: 160,
+    backgroundColor: '#E5E5EA', // Placeholder color before image loads
+  },
+  cardContent: {
+    padding: 12,
+  },
+  category: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  productName: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 8,
+    lineHeight: 20,
+    height: 40, // Forces alignment even if name is only 1 line
+  },
+  price: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+});

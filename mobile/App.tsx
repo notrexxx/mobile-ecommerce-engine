@@ -3,8 +3,8 @@ import { useColorScheme } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from './src/screens/LoginScreen';
+import HomeScreen from './src/screens/HomeScreen';
 
-// Create the Native Stack router
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -12,12 +12,19 @@ export default function App() {
 
   return (
     <NavigationContainer theme={scheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack.Navigator>
+      <Stack.Navigator initialRouteName="Login">
         <Stack.Screen 
           name="Login" 
           component={LoginScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="Home" 
+          component={HomeScreen} 
           options={{ 
-            headerShown: false, // Hides the default header for a cleaner, full-screen look
+            title: 'Storefront',
+            headerLargeTitle: true, // Native iOS large collapsing header
+            headerBackVisible: false, // Prevents swiping back to the login screen
           }} 
         />
       </Stack.Navigator>
