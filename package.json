@@ -1,0 +1,27 @@
+{
+  "name": "mobile-ecommerce-engine",
+  "version": "1.0.0",
+  "description": "A high-performance e-commerce architecture featuring NestJS, TypeORM, JWT Auth, and a React Native mobile storefront.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:mobile\"",
+    "dev:backend": "cd backend && npm run start:dev",
+    "dev:mobile": "cd mobile && npx expo start -c",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/notrexxx/mobile-ecommerce-engine.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/notrexxx/mobile-ecommerce-engine/issues"
+  },
+  "homepage": "https://github.com/notrexxx/mobile-ecommerce-engine#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}
