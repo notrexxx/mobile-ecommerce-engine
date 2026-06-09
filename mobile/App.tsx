@@ -12,6 +12,7 @@ import {
   Inter_700Bold 
 } from '@expo-google-fonts/inter';
 
+import { AuthProvider } from './src/context/AuthContext';
 import { CartProvider } from './src/context/CartContext';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -46,21 +47,24 @@ export default function App() {
 
   return (
     <View style={{ flex: 1 }}>
-      <CartProvider>
-        <NavigationContainer theme={scheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack.Navigator initialRouteName="Login">
-            
-            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ headerShown: false, presentation: 'transparentModal' }} />
-            <Stack.Screen name="Cart" component={CartScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ headerShown: false }} />
-            
-          </Stack.Navigator>
-        </NavigationContainer>
-        <Toast />
-      </CartProvider>
+      {/* AuthProvider wraps everything so user state is accessible globally */}
+      <AuthProvider>
+        <CartProvider>
+          <NavigationContainer theme={scheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack.Navigator initialRouteName="Login">
+              
+              <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ headerShown: false, presentation: 'transparentModal' }} />
+              <Stack.Screen name="Cart" component={CartScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ headerShown: false }} />
+              
+            </Stack.Navigator>
+          </NavigationContainer>
+          <Toast />
+        </CartProvider>
+      </AuthProvider>
     </View>
   );
 }
