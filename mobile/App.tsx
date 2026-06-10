@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
 import AdminOrdersScreen from './src/screens/AdminOrdersScreen';
+import AdminOrderDetailsScreen from './src/screens/AdminOrderDetailsScreen';
 import { 
   useFonts, 
   Inter_400Regular, 
@@ -28,7 +29,7 @@ const Stack = createNativeStackNavigator();
 
 // Define the linking configuration to sync with the browser URL
 const linking = {
-  prefixes: ['http://localhost:8081', 'https://your-production-url.com'],
+  prefixes: ['http://localhost:8081', 'https://mobile-ecommerce-engine-nygp.vercel.app'],
   config: {
     initialRouteName: 'Home' as const,
     screens: {
@@ -39,6 +40,7 @@ const linking = {
       Cart: 'cart',
       Checkout: 'checkout',
       AdminOrders: 'admin/orders', 
+      AdminOrderDetails: 'admin/order-details',
     },
   },
 };
@@ -76,13 +78,13 @@ export default function App() {
             {/* Change initialRouteName to Home so Guest users don't get trapped */}
             <Stack.Navigator initialRouteName="Home">
               <Stack.Screen name="AdminOrders" component={AdminOrdersScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="AdminOrderDetails" component={AdminOrderDetailsScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
               <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ headerShown: false, presentation: 'transparentModal' }} />
               <Stack.Screen name="Cart" component={CartScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ headerShown: false }} />
-              
             </Stack.Navigator>
           </NavigationContainer>
           <Toast />

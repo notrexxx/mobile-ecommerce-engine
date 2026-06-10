@@ -171,7 +171,11 @@ export default function AdminOrdersScreen({ navigation }: any) {
     const isPending = item.status === 'pending';
 
     return (
-      <View style={[styles.orderCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <TouchableOpacity 
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('AdminOrderDetails', { order: item })}
+        style={[styles.orderCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+      >
         <View style={styles.orderHeader}>
           <View>
             <StyledText variant="caption" style={{ color: theme.subtext }}>Order ID: {item.id.substring(0, 8).toUpperCase()}</StyledText>
@@ -220,7 +224,7 @@ export default function AdminOrdersScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -279,7 +283,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   headerBlur: { position: 'absolute', top: 0, left: 0, right: 0, width: '100%', zIndex: 999, elevation: 20, borderBottomWidth: StyleSheet.hairlineWidth },
   headerContent: { paddingTop: Platform.OS === 'ios' ? 44 : 20, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  iconButton: { width: 40, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 80, alignItems: 'flex-start', justifyContent: 'center' },
   authButtonWrapper: { flexDirection: 'row', alignItems: 'center', padding: 8 },
   authButtonText: { fontWeight: '600', marginLeft: 6 },
   listContent: { paddingTop: Platform.OS === 'ios' ? 110 : 90, paddingBottom: 120, paddingHorizontal: 16, maxWidth: 800, width: '100%', alignSelf: 'center' },
@@ -291,6 +295,6 @@ const styles = StyleSheet.create({
   orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusRow: { flexDirection: 'row', alignItems: 'center' },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-  actionButtons: { flexDirection: 'row', alignItems: 'center' },
+  actionButtons: { flexDirection: 'row', alignItems: 'center', zIndex: 10 },
   actionButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 });
