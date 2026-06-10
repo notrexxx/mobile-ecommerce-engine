@@ -14,8 +14,8 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../utils/api';
+import { supabase } from '../utils/supabase';
+import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { lightTheme, darkTheme } from '../theme/theme';
 import StyledText from '../components/StyledText';
@@ -24,6 +24,7 @@ import PremiumButton from '../components/PremiumButton';
 
 export default function CheckoutScreen({ navigation }: any) {
   const { cart, getCartTotal, clearCart } = useCart();
+  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [address, setAddress] = useState('');
@@ -36,6 +37,7 @@ export default function CheckoutScreen({ navigation }: any) {
   const isDesktop = width >= 768;
 
   const handlePayment = async () => {
+    // 1. Validate Form Fields
     if (!address || !city || !zipCode) {
       Toast.show({
         type: 'error',
@@ -45,23 +47,42 @@ export default function CheckoutScreen({ navigation }: any) {
       return;
     }
 
+    // 2. Validate Cart
+    if (cart.length === 0) {
+      Toast.show({
+        type: 'info',
+        text1: 'Empty Cart',
+        text2: 'Please add items before checking out.',
+      });
+      return;
+    }
+
+    // 3. Validate Authentication Session
+    if (!user) {
+      Toast.show({
+        type: 'error',
+        text1: 'Authentication Required',
+        text2: 'Please log in to complete your purchase.',
+      });
+      navigation.navigate('Login');
+      return;
+    }
+
     if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsProcessing(true);
 
     try {
-      const userStr = await AsyncStorage.getItem('user_profile');
-      if (!userStr) throw new Error('User authentication missing.');
-      const user = JSON.parse(userStr);
-      
-      const cartItems = cart.map(item => ({
-        productId: item.product.id,
-        quantity: item.quantity
-      }));
+      // 4. Push order strictly to the Supabase orders table
+      const { error } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          items: cart, // Supabase automatically handles the cart array as JSONB
+          total: getCartTotal(),
+          status: 'pending'
+        });
 
-      await api.post('/orders/checkout', {
-        userId: user.id,
-        cartItems,
-      });
+      if (error) throw error;
 
       if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -79,11 +100,11 @@ export default function CheckoutScreen({ navigation }: any) {
 
     } catch (error: any) {
       if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const errorMessage = error.response?.data?.message || 'Transaction failed. Please try again.';
+      
       Toast.show({
         type: 'error',
         text1: 'Checkout Error',
-        text2: errorMessage,
+        text2: error.message || 'Transaction failed. Please try again.',
       });
     } finally {
       setIsProcessing(false);

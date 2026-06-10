@@ -15,6 +15,7 @@ import { lightTheme, darkTheme } from '../theme/theme';
 import StyledText from '../components/StyledText';
 import PremiumButton from '../components/PremiumButton';
 import PremiumInput from '../components/PremiumInput';
+import { supabase } from '../utils/supabase';
 
 export default function RegisterScreen({ navigation }: any) {
   const [name, setName] = useState('');
@@ -32,11 +33,36 @@ export default function RegisterScreen({ navigation }: any) {
       Toast.show({ type: 'error', text1: 'Missing Fields', text2: 'Please fill out all fields.' });
       return;
     }
+    
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+
+    // Register securely with Supabase and pass the name to user metadata
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: password,
+      options: {
+        data: {
+          full_name: name,
+        }
+      }
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Registration Failed',
+        text2: error.message,
+      });
+    } else {
+      Toast.show({
+        type: 'success',
+        text1: 'Account Created',
+        text2: 'Welcome to your premium setup.',
+      });
       navigation.replace('Home');
-    }, 1500);
+    }
   };
 
   return (

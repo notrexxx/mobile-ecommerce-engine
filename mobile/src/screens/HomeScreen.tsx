@@ -13,10 +13,12 @@ import {
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { lightTheme, darkTheme } from '../theme/theme';
 import StyledText from '../components/StyledText';
 import { useCart } from '../context/CartContext';
-import { supabase } from '../utils/supabase'; // The new live database connection
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../utils/supabase';
 
 const CATEGORIES = ['All', 'Audio', 'Peripherals', 'Displays', 'Gaming', 'Photography', 'Accessories'];
 const CARD_MARGIN = 16;
@@ -26,8 +28,11 @@ export default function HomeScreen({ navigation }: any) {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [orderCount, setOrderCount] = useState(0);
   
   const { cart } = useCart();
+  const { user, profile, signOut } = useAuth(); 
+  
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
 
@@ -51,11 +56,10 @@ export default function HomeScreen({ navigation }: any) {
         if (error) throw error;
         
         if (data) {
-          // Map database snake_case to the camelCase our UI expects
           const formattedData = data.map(item => ({
             ...item,
             imageUrl: item.image_url,
-            price: Number(item.price) // Ensure price comes through as a number
+            price: Number(item.price)
           }));
           setProducts(formattedData);
         }
@@ -69,6 +73,22 @@ export default function HomeScreen({ navigation }: any) {
     fetchProducts();
   }, []);
 
+  // Fetch Order Count for Admin Badge
+  useEffect(() => {
+    const fetchOrderCount = async () => {
+      if (profile?.is_admin) {
+        const { count, error } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true });
+        
+        if (!error && count !== null) {
+          setOrderCount(count);
+        }
+      }
+    };
+    fetchOrderCount();
+  }, [profile]);
+
   const handleCategoryPress = async (category: string) => {
     if (Platform.OS !== 'web') await Haptics.selectionAsync();
     setActiveCategory(category);
@@ -77,6 +97,25 @@ export default function HomeScreen({ navigation }: any) {
   const handleProductPress = async (product: any) => {
     if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate('ProductDetails', { product });
+  };
+
+  const handleLogout = async () => {
+    if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await signOut();
+      Toast.show({
+        type: 'success',
+        text1: 'Logged Out',
+        text2: 'You have been securely signed out.',
+      });
+      navigation.replace('Login');
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Logout Failed',
+        text2: error.message,
+      });
+    }
   };
 
   const filteredProducts = activeCategory === 'All' ? products : products.filter(p => p.category === activeCategory);
@@ -141,20 +180,63 @@ export default function HomeScreen({ navigation }: any) {
 
       <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={[styles.headerBlur, { borderBottomColor: theme.border }]}>
         <View style={[styles.headerContent, { paddingHorizontal: isDesktop ? 48 : 16 }]}>
+          
           <TouchableOpacity onPress={() => navigation.navigate('Home')} activeOpacity={0.8}>
             <Image source={require('../../assets/tech-logo.png')} style={[styles.headerLogo, { tintColor: theme.text }]} resizeMode="contain" />
           </TouchableOpacity>
           
-          <TouchableOpacity onPress={() => navigation.navigate('Cart')} style={styles.cartIconWrapper}>
-            <Ionicons name="bag-outline" size={24} color={theme.text} />
-            {cartItemCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: '#FF3B30', borderColor: theme.background }]}>
-                <StyledText variant="caption" style={[styles.badgeText, { color: '#FFFFFF' }]}>
-                  {cartItemCount > 99 ? '99+' : cartItemCount}
-                </StyledText>
-              </View>
+          {/* Action Icons Container */}
+          <View style={styles.actionIcons}>
+            
+            {/* Conditional Admin Button */}
+            {profile?.is_admin && (
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('AdminOrders')} 
+                style={styles.authButtonWrapper}
+              >
+                <View style={{ position: 'relative' }}>
+                  <Ionicons name="shield-checkmark-outline" size={24} color={theme.text} />
+                  {orderCount > 0 && (
+                    <View style={[styles.badge, { backgroundColor: '#FF9500', top: -4, right: -4 }]}>
+                      <StyledText variant="caption" style={[styles.badgeText, { color: '#FFFFFF' }]}>
+                        {orderCount > 99 ? '99+' : orderCount}
+                      </StyledText>
+                    </View>
+                  )}
+                </View>
+                <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Orders</StyledText>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+
+            {/* Cart Button */}
+            <TouchableOpacity onPress={() => navigation.navigate('Cart')} style={styles.authButtonWrapper}>
+              <View style={{ position: 'relative' }}>
+                <Ionicons name="bag-outline" size={24} color={theme.text} />
+                {cartItemCount > 0 && (
+                  <View style={[styles.badge, { backgroundColor: '#FF3B30', top: -4, right: -4 }]}>
+                    <StyledText variant="caption" style={[styles.badgeText, { color: '#FFFFFF' }]}>
+                      {cartItemCount > 99 ? '99+' : cartItemCount}
+                    </StyledText>
+                  </View>
+                )}
+              </View>
+              <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Cart</StyledText>
+            </TouchableOpacity>
+
+            {/* Logout/Login Button */}
+            {user ? (
+              <TouchableOpacity onPress={handleLogout} style={styles.authButtonWrapper}>
+                <Ionicons name="log-out-outline" size={24} color={theme.text} />
+                <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Log Out</StyledText>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.authButtonWrapper}>
+                <Ionicons name="person-outline" size={24} color={theme.text} />
+                <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Log In</StyledText>
+              </TouchableOpacity>
+            )}
+            
+          </View>
         </View>
       </BlurView>
     </View>
@@ -173,7 +255,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' 
   },
   headerLogo: { width: 150, height: 45 },
-  cartIconWrapper: { padding: 8, position: 'relative' },
+  
+  actionIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconWrapper: { 
+    padding: 8, 
+    marginLeft: 8,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  authButtonWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    marginLeft: 8,
+  },
+  authButtonText: {
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+
   badge: { position: 'absolute', top: 2, right: 2, minWidth: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, borderWidth: 1.5 },
   badgeText: { fontSize: 10, lineHeight: 12, fontWeight: '700', letterSpacing: 0 },
   categoriesContainer: { marginBottom: 32 },

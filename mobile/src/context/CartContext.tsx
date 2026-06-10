@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from './AuthContext'; // <-- Import Auth Context
 
 export interface Product {
   id: string;
@@ -23,23 +24,31 @@ interface CartContextType {
   clearCart: () => void;
   getCartCount: () => number;
   getCartTotal: () => number;
-  isLoaded: boolean; // Tells the UI when storage finishes loading
+  isLoaded: boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
-const CART_STORAGE_KEY = '@premium_store_cart';
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Grab the currently logged-in user
+  const { user } = useAuth(); 
 
-  // 1. Load initial cart from the phone's storage on startup
+  // Create a dynamic storage key based on whether a user exists
+  const cartKey = user ? `@premium_store_cart_${user.id}` : '@premium_store_cart_guest';
+
+  // 1. Load cart from the phone's storage whenever the user logs in or out
   useEffect(() => {
     const loadCart = async () => {
+      setIsLoaded(false); // Pause saving to prevent accidental overwrites during account switch
       try {
-        const storedCart = await AsyncStorage.getItem(CART_STORAGE_KEY);
+        const storedCart = await AsyncStorage.getItem(cartKey);
         if (storedCart) {
           setCart(JSON.parse(storedCart));
+        } else {
+          setCart([]); // Clear the cart array if this specific user has no saved items
         }
       } catch (error) {
         console.error('Failed to load cart from storage:', error);
@@ -48,26 +57,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     };
     loadCart();
-  }, []);
+  }, [cartKey]);
 
-  // 2. Save cart to storage whenever it changes (only after initial load)
+  // 2. Save cart to storage whenever the cart data OR the cart key changes
   useEffect(() => {
     if (isLoaded) {
       const saveCart = async () => {
         try {
-          await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+          await AsyncStorage.setItem(cartKey, JSON.stringify(cart));
         } catch (error) {
           console.error('Failed to save cart to storage:', error);
         }
       };
       saveCart();
     }
-  }, [cart, isLoaded]);
+  }, [cart, isLoaded, cartKey]);
 
   // 3. State Watcher to verify injection in terminal
   useEffect(() => {
-    if (isLoaded) { // Only log once the cart has actually loaded from memory
-      console.log('\n🛒 --- CART STATE INJECTED ---');
+    if (isLoaded) { 
+      console.log(`\n🛒 --- CART STATE (${user ? 'USER' : 'GUEST'}) ---`);
       console.log(`Total Unique Items: ${cart.length}`);
       console.log(`Total Quantity: ${cart.reduce((total, item) => total + item.quantity, 0)}`);
       cart.forEach(item => {
@@ -75,7 +84,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
       console.log('-------------------------------\n');
     }
-  }, [cart, isLoaded]);
+  }, [cart, isLoaded, user]);
 
   const addToCart = (product: Product) => {
     setCart((prevCart) => {

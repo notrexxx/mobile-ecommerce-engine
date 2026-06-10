@@ -10,13 +10,12 @@ import {
   SafeAreaView,
   useWindowDimensions,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { lightTheme, darkTheme } from '../theme/theme';
 import StyledText from '../components/StyledText';
 import PremiumButton from '../components/PremiumButton';
 import PremiumInput from '../components/PremiumInput';
-import { api } from '../utils/api';
+import { supabase } from '../utils/supabase';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -35,19 +34,27 @@ export default function LoginScreen({ navigation }: any) {
     }
 
     setIsLoading(true);
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      await AsyncStorage.setItem('auth_token', response.data.token);
-      await AsyncStorage.setItem('user_profile', JSON.stringify(response.data.user));
-      navigation.replace('Home');
-    } catch (error: any) {
+    
+    // Authenticate securely with Supabase
+    const { error } = await supabase.auth.signInWithPassword({ 
+      email: email.trim(), 
+      password 
+    });
+
+    setIsLoading(false);
+
+    if (error) {
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: error.response?.data?.message || 'Invalid credentials.',
+        text2: error.message,
       });
-    } finally {
-      setIsLoading(false);
+    } else {
+      Toast.show({
+        type: 'success',
+        text1: 'Welcome back!',
+      });
+      navigation.replace('Home');
     }
   };
 
@@ -58,7 +65,7 @@ export default function LoginScreen({ navigation }: any) {
         style={[
           styles.topLeftLogoContainer,
           {
-            top: Platform.OS === 'ios' ? 44 : 20, // Synced to exact navbar padding
+            top: Platform.OS === 'ios' ? 44 : 20,
             left: isDesktop ? 48 : 16,
           }
         ]}
@@ -81,8 +88,21 @@ export default function LoginScreen({ navigation }: any) {
           </View>
 
           <View style={styles.form}>
-            <PremiumInput placeholder="Email Address" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} editable={!isLoading} />
-            <PremiumInput placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} editable={!isLoading} />
+            <PremiumInput 
+              placeholder="Email Address" 
+              autoCapitalize="none" 
+              keyboardType="email-address" 
+              value={email} 
+              onChangeText={setEmail} 
+              editable={!isLoading} 
+            />
+            <PremiumInput 
+              placeholder="Password" 
+              secureTextEntry 
+              value={password} 
+              onChangeText={setPassword} 
+              editable={!isLoading} 
+            />
 
             <TouchableOpacity style={styles.forgotPassword}>
               <StyledText variant="caption" style={{ color: theme.subtext }}>Forgot Password?</StyledText>
@@ -106,7 +126,7 @@ export default function LoginScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   topLeftLogoContainer: { position: 'absolute', zIndex: 10 },
-  techLogo: { width: 150, height: 45 }, // Maintained original larger size
+  techLogo: { width: 150, height: 45 },
   keyboardView: { flex: 1 },
   content: { flex: 1, padding: 24, justifyContent: 'center', maxWidth: 400, width: '100%', alignSelf: 'center' },
   header: { marginBottom: 40, alignItems: 'center' },

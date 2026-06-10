@@ -4,6 +4,7 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
+import AdminOrdersScreen from './src/screens/AdminOrdersScreen';
 import { 
   useFonts, 
   Inter_400Regular, 
@@ -52,7 +53,7 @@ export default function App() {
         <CartProvider>
           <NavigationContainer theme={scheme === 'dark' ? DarkTheme : DefaultTheme}>
             <Stack.Navigator initialRouteName="Login">
-              
+              <Stack.Screen name="AdminOrders" component={AdminOrdersScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />

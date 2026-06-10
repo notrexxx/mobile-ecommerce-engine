@@ -1,0 +1,266 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  Platform,
+  useColorScheme,
+  Image,
+  TouchableOpacity,
+  useWindowDimensions,
+  FlatList,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
+import { supabase } from '../utils/supabase';
+import { lightTheme, darkTheme } from '../theme/theme';
+import StyledText from '../components/StyledText';
+
+export default function AdminOrdersScreen({ navigation }: any) {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'pending' | 'shipped'>('pending');
+
+  const isDark = useColorScheme() === 'dark';
+  const theme = isDark ? darkTheme : lightTheme;
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          profiles ( email )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Database Error', text2: error.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  // New logic to handle switching statuses in the database
+  const handleUpdateStatus = async (orderId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'pending' ? 'shipped' : 'pending';
+    
+    if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsUpdating(orderId);
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // Update the local state instantly to reflect the database change
+      setOrders(prev => prev.map(order => order.id === orderId ? { ...order, status: newStatus } : order));
+      
+      if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Toast.show({ 
+        type: 'success', 
+        text1: 'Status Updated', 
+        text2: `Order successfully marked as ${newStatus}.` 
+      });
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Update Failed', text2: error.message });
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    
+    Alert.alert(
+      "Erase Order",
+      "Are you sure you want to permanently delete this order? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: async () => {
+            setIsDeleting(orderId);
+            try {
+              const { error } = await supabase.from('orders').delete().eq('id', orderId);
+              if (error) throw error;
+              
+              setOrders(prev => prev.filter(order => order.id !== orderId));
+              if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Toast.show({ type: 'success', text1: 'Order Erased' });
+            } catch (error: any) {
+              Toast.show({ type: 'error', text1: 'Delete Failed', text2: error.message });
+            } finally {
+              setIsDeleting(null);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const filteredOrders = orders.filter(o => o.status === activeTab);
+
+  const renderOrderItem = ({ item }: { item: any }) => {
+    const orderDate = new Date(item.created_at).toLocaleDateString();
+    const itemCount = item.items.reduce((acc: number, cartItem: any) => acc + cartItem.quantity, 0);
+    const isPending = item.status === 'pending';
+
+    return (
+      <View style={[styles.orderCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={styles.orderHeader}>
+          <View>
+            <StyledText variant="caption" style={{ color: theme.subtext }}>Order ID: {item.id.substring(0, 8).toUpperCase()}</StyledText>
+            <StyledText variant="body" style={{ fontWeight: '600', marginTop: 4 }}>
+              {item.profiles?.email || 'Unknown User'}
+            </StyledText>
+          </View>
+          <StyledText variant="h3">${Number(item.total).toFixed(2)}</StyledText>
+        </View>
+
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+        <View style={styles.orderFooter}>
+          <View style={styles.statusRow}>
+            <View style={[styles.statusDot, { backgroundColor: isPending ? '#FF9500' : '#34C759' }]} />
+            <StyledText variant="caption" style={{ color: theme.subtext, textTransform: 'capitalize' }}>
+              {item.status} • {itemCount} items • {orderDate}
+            </StyledText>
+          </View>
+          
+          <View style={styles.actionButtons}>
+            {/* Status Toggle Button */}
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: isPending ? theme.primary : theme.border, marginRight: 12 }]} 
+              onPress={() => handleUpdateStatus(item.id, item.status)}
+              disabled={isUpdating === item.id}
+            >
+              {isUpdating === item.id ? (
+                <ActivityIndicator size="small" color={isPending ? theme.background : theme.text} />
+              ) : (
+                <StyledText variant="caption" style={{ color: isPending ? theme.background : theme.text, fontWeight: '600' }}>
+                  {isPending ? 'Mark Shipped' : 'Revert Pending'}
+                </StyledText>
+              )}
+            </TouchableOpacity>
+
+            {/* Erase Button */}
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: isDark ? '#331111' : '#FFE5E5', paddingHorizontal: 12 }]} 
+              onPress={() => handleDeleteOrder(item.id)}
+              disabled={isDeleting === item.id}
+            >
+              {isDeleting === item.id ? (
+                <ActivityIndicator size="small" color="#FF3B30" />
+              ) : (
+                <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={[styles.headerBlur, { borderBottomColor: theme.border }]}>
+        
+        {/* Main Header */}
+        <View style={[styles.headerContent, { paddingHorizontal: isDesktop ? 48 : 16 }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
+            <Ionicons name="arrow-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+          <StyledText variant="h3">Admin Orders</StyledText>
+          <View style={styles.iconButton} /> 
+        </View>
+
+        {/* Tab Switcher */}
+        <View style={[styles.tabsContainer, { paddingHorizontal: isDesktop ? 48 : 16 }]}>
+          <TouchableOpacity 
+            style={[styles.tab, { backgroundColor: activeTab === 'pending' ? theme.primary : 'transparent', borderColor: activeTab === 'pending' ? theme.primary : theme.border }]}
+            onPress={() => {
+              if (Platform.OS !== 'web') Haptics.selectionAsync();
+              setActiveTab('pending');
+            }}
+          >
+            <StyledText variant="caption" style={{ color: activeTab === 'pending' ? theme.background : theme.text, fontWeight: '600' }}>
+              Pending ({orders.filter(o => o.status === 'pending').length})
+            </StyledText>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.tab, { backgroundColor: activeTab === 'shipped' ? theme.primary : 'transparent', borderColor: activeTab === 'shipped' ? theme.primary : theme.border }]}
+            onPress={() => {
+              if (Platform.OS !== 'web') Haptics.selectionAsync();
+              setActiveTab('shipped');
+            }}
+          >
+            <StyledText variant="caption" style={{ color: activeTab === 'shipped' ? theme.background : theme.text, fontWeight: '600' }}>
+              Shipped ({orders.filter(o => o.status === 'shipped').length})
+            </StyledText>
+          </TouchableOpacity>
+        </View>
+
+      </BlurView>
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.text} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredOrders}
+          keyExtractor={(item) => item.id}
+          renderItem={renderOrderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', marginTop: 100 }}>
+              <Ionicons name="file-tray-outline" size={48} color={theme.border} />
+              <StyledText variant="body" style={{ color: theme.subtext, marginTop: 16 }}>
+                No {activeTab} orders found.
+              </StyledText>
+            </View>
+          }
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  headerBlur: { position: 'absolute', top: 0, left: 0, right: 0, width: '100%', zIndex: 999, elevation: 20, borderBottomWidth: StyleSheet.hairlineWidth },
+  headerContent: { paddingTop: Platform.OS === 'ios' ? 44 : 20, paddingBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tabsContainer: { flexDirection: 'row', gap: 12, paddingBottom: 16 },
+  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  iconButton: { width: 40, alignItems: 'center', justifyContent: 'center' },
+  listContent: { paddingTop: Platform.OS === 'ios' ? 160 : 140, paddingBottom: 120, paddingHorizontal: 16, maxWidth: 800, width: '100%', alignSelf: 'center' },
+  orderCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
+  orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  divider: { height: 1, width: '100%', marginVertical: 12 },
+  orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statusRow: { flexDirection: 'row', alignItems: 'center' },
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  actionButtons: { flexDirection: 'row', alignItems: 'center' },
+  actionButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+});
