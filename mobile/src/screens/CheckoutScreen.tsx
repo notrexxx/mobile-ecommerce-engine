@@ -88,7 +88,8 @@ export default function CheckoutScreen({ navigation }: any) {
     setIsProcessing(true);
 
     try {
-      const { error } = await supabase
+      // Step 1: Create the Order Record
+      const { error: orderError } = await supabase
         .from('orders')
         .insert({
           user_id: user.id,
@@ -97,8 +98,31 @@ export default function CheckoutScreen({ navigation }: any) {
           status: 'pending'
         });
 
-      if (error) throw error;
+      if (orderError) throw orderError;
 
+    
+      const stockUpdates = cart.map(async (cartItem) => {
+        // Fetch current stock to calculate precise deduction
+        const { data: currentProduct } = await supabase
+          .from('products')
+          .select('stock')
+          .eq('id', cartItem.id)
+          .single();
+
+        if (currentProduct) {
+          const newStock = Math.max(0, currentProduct.stock - cartItem.quantity); // Ensures stock never drops below 0
+          
+          await supabase
+            .from('products')
+            .update({ stock: newStock })
+            .eq('id', cartItem.id);
+        }
+      });
+
+      // Execute all stock deductions concurrently
+      await Promise.all(stockUpdates);
+
+      // Step 3: Finalize Checkout UX
       if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       Toast.show({
@@ -142,12 +166,12 @@ export default function CheckoutScreen({ navigation }: any) {
           {user ? (
             <TouchableOpacity onPress={handleLogout} style={styles.authButtonWrapper}>
               <Ionicons name="log-out-outline" size={24} color={theme.text} />
-              <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Log Out</StyledText>
+              <StyledText variant="body" style={[styles.authButtonText, { color: theme.text, display: Platform.OS === 'web' ? 'flex' : 'none' }]}>Log Out</StyledText>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.authButtonWrapper}>
               <Ionicons name="person-outline" size={24} color={theme.text} />
-              <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Log In</StyledText>
+              <StyledText variant="body" style={[styles.authButtonText, { color: theme.text, display: Platform.OS === 'web' ? 'flex' : 'none' }]}>Log In</StyledText>
             </TouchableOpacity>
           )}
         </View>

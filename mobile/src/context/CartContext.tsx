@@ -7,12 +7,17 @@ export interface Product {
   name: string;
   price: number;
   imageUrl: string;
+  image_url?: string;
   category: string;
   description: string;
   stock: number;
 }
 
+// ⚠️ ARCHITECTURAL UPGRADE: 
+// Explicitly exposing 'id' at the root level of CartItem so standard mapping 
+// loops (like checkout transactions) can easily grab item IDs without deep nesting.
 export interface CartItem {
+  id: string; 
   product: Product;
   quantity: number;
 }
@@ -80,7 +85,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       console.log(`Total Unique Items: ${cart.length}`);
       console.log(`Total Quantity: ${cart.reduce((total, item) => total + item.quantity, 0)}`);
       cart.forEach(item => {
-        console.log(`-> ${item.quantity}x ${item.product.name}`);
+        console.log(`-> ${item.quantity}x ${item.product.name} (ID: ${item.id})`);
       });
       console.log('-------------------------------\n');
     }
@@ -88,15 +93,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addToCart = (product: Product) => {
     setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.product.id === product.id);
+      const existingItem = prevCart.find((item) => item.id === product.id);
       if (existingItem) {
         // Prevent exceeding available warehouse stock
         if (existingItem.quantity >= product.stock) return prevCart;
         return prevCart.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prevCart, { product, quantity: 1 }];
+      // Provide the root-level ID when adding a brand new item
+      return [...prevCart, { id: product.id, product, quantity: 1 }];
     });
   };
 
@@ -104,7 +110,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart((prevCart) =>
       prevCart
         .map((item) =>
-          item.product.id === productId ? { ...item, quantity: item.quantity - 1 } : item
+          item.id === productId ? { ...item, quantity: item.quantity - 1 } : item
         )
         .filter((item) => item.quantity > 0)
     );

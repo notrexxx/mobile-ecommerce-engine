@@ -4,8 +4,6 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
-import AdminOrdersScreen from './src/screens/AdminOrdersScreen';
-import AdminOrderDetailsScreen from './src/screens/AdminOrderDetailsScreen';
 import { 
   useFonts, 
   Inter_400Regular, 
@@ -22,12 +20,15 @@ import HomeScreen from './src/screens/HomeScreen';
 import ProductDetailsScreen from './src/screens/ProductDetailsScreen';
 import CartScreen from './src/screens/CartScreen';
 import CheckoutScreen from './src/screens/CheckoutScreen';
+import AdminOrdersScreen from './src/screens/AdminOrdersScreen';
+import AdminOrderDetailsScreen from './src/screens/AdminOrderDetailsScreen';
+import AdminProductsScreen from './src/screens/AdminProductsScreen';
+import AdminProductFormScreen from './src/screens/AdminProductFormScreen'; 
 
 SplashScreen.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator();
 
-// Define the linking configuration to sync with the browser URL
 const linking = {
   prefixes: ['http://localhost:8081', 'https://mobile-ecommerce-engine-nygp.vercel.app'],
   config: {
@@ -41,6 +42,8 @@ const linking = {
       Checkout: 'checkout',
       AdminOrders: 'admin/orders', 
       AdminOrderDetails: 'admin/order-details',
+      AdminProducts: 'admin/products',
+      AdminProductForm: 'admin/product-form',
     },
   },
 };
@@ -67,18 +70,18 @@ export default function App() {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* AuthProvider wraps everything so user state is accessible globally */}
       <AuthProvider>
         <CartProvider>
-          {/* Pass the linking object into the NavigationContainer */}
           <NavigationContainer 
             linking={linking} 
             theme={scheme === 'dark' ? DarkTheme : DefaultTheme}
           >
-            {/* Change initialRouteName to Home so Guest users don't get trapped */}
             <Stack.Navigator initialRouteName="Home">
               <Stack.Screen name="AdminOrders" component={AdminOrdersScreen} options={{ headerShown: false }} />
               <Stack.Screen name="AdminOrderDetails" component={AdminOrderDetailsScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="AdminProducts" component={AdminProductsScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="AdminProductForm" component={AdminProductFormScreen} options={{ headerShown: false, presentation: 'modal' }} />
+              
               <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />

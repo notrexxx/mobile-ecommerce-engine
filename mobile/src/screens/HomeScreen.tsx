@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -14,6 +14,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import { useIsFocused } from '@react-navigation/native';
 import { lightTheme, darkTheme } from '../theme/theme';
 import StyledText from '../components/StyledText';
 import { useCart } from '../context/CartContext';
@@ -32,6 +33,7 @@ export default function HomeScreen({ navigation }: any) {
   
   const { cart } = useCart();
   const { user, profile, signOut } = useAuth(); 
+  const isFocused = useIsFocused();
   
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
@@ -48,30 +50,33 @@ export default function HomeScreen({ navigation }: any) {
 
   const cartItemCount = cart.reduce((total, item) => total + item.quantity, 0);
 
-  // Live Database Fetch
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const { data, error } = await supabase.from('products').select('*');
-        if (error) throw error;
-        
-        if (data) {
-          const formattedData = data.map(item => ({
-            ...item,
-            imageUrl: item.image_url,
-            price: Number(item.price)
-          }));
-          setProducts(formattedData);
-        }
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setIsLoading(false);
+  // Live Database Fetch (Triggers on mount and screen focus to keep stock metrics pristine)
+  const fetchProducts = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('products').select('*');
+      if (error) throw error;
+      
+      if (data) {
+        const formattedData = data.map(item => ({
+          ...item,
+          imageUrl: item.image_url,
+          price: Number(item.price),
+          stock: item.stock !== undefined ? Number(item.stock) : 10 // Default fallback safety
+        }));
+        setProducts(formattedData);
       }
-    };
-
-    fetchProducts();
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    if (isFocused) {
+      fetchProducts();
+    }
+  }, [isFocused, fetchProducts]);
 
   // Fetch Order Count for Admin Badge
   useEffect(() => {
@@ -86,8 +91,10 @@ export default function HomeScreen({ navigation }: any) {
         }
       }
     };
-    fetchOrderCount();
-  }, [profile]);
+    if (isFocused) {
+      fetchOrderCount();
+    }
+  }, [profile, isFocused]);
 
   const handleCategoryPress = async (category: string) => {
     if (Platform.OS !== 'web') await Haptics.selectionAsync();
@@ -97,6 +104,11 @@ export default function HomeScreen({ navigation }: any) {
   const handleProductPress = async (product: any) => {
     if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate('ProductDetails', { product });
+  };
+
+  const handleAdminNav = async (routeName: string) => {
+    if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate(routeName);
   };
 
   const handleLogout = async () => {
@@ -118,7 +130,12 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const filteredProducts = activeCategory === 'All' ? products : products.filter(p => p.category === activeCategory);
+  // Filter products by category AND remove out-of-stock items from the public marketplace grid
+  const filteredProducts = products.filter(p => {
+    const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
+    const hasInventory = p.stock > 0;
+    return matchesCategory && hasInventory;
+  });
 
   const renderListHeader = () => (
     <View style={styles.categoriesContainer}>
@@ -188,24 +205,36 @@ export default function HomeScreen({ navigation }: any) {
           {/* Action Icons Container */}
           <View style={styles.actionIcons}>
             
-            {/* Conditional Admin Button */}
+            {/* Conditional Admin Buttons Block */}
             {profile?.is_admin && (
-              <TouchableOpacity 
-                onPress={() => navigation.navigate('AdminOrders')} 
-                style={styles.authButtonWrapper}
-              >
-                <View style={{ position: 'relative' }}>
-                  <Ionicons name="shield-checkmark-outline" size={24} color={theme.text} />
-                  {orderCount > 0 && (
-                    <View style={[styles.badge, { backgroundColor: '#FF9500', top: -4, right: -4 }]}>
-                      <StyledText variant="caption" style={[styles.badgeText, { color: '#FFFFFF' }]}>
-                        {orderCount > 99 ? '99+' : orderCount}
-                      </StyledText>
-                    </View>
-                  )}
-                </View>
-                <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Orders</StyledText>
-              </TouchableOpacity>
+              <>
+                {/* Inventory CMS Suite Trigger */}
+                <TouchableOpacity 
+                  onPress={() => handleAdminNav('AdminProducts')} 
+                  style={styles.authButtonWrapper}
+                >
+                  <Ionicons name="cube-outline" size={24} color={theme.text} />
+                  <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Products</StyledText>
+                </TouchableOpacity>
+
+                {/* Orders Management Dashboard Trigger */}
+                <TouchableOpacity 
+                  onPress={() => handleAdminNav('AdminOrders')} 
+                  style={styles.authButtonWrapper}
+                >
+                  <View style={{ position: 'relative' }}>
+                    <Ionicons name="shield-checkmark-outline" size={24} color={theme.text} />
+                    {orderCount > 0 && (
+                      <View style={[styles.badge, { backgroundColor: '#FF9500', top: -4, right: -4 }]}>
+                        <StyledText variant="caption" style={[styles.badgeText, { color: '#FFFFFF' }]}>
+                          {orderCount > 99 ? '99+' : orderCount}
+                        </StyledText>
+                      </View>
+                    )}
+                  </View>
+                  <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Orders</StyledText>
+                </TouchableOpacity>
+              </>
             )}
 
             {/* Cart Button */}
@@ -271,11 +300,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
-    marginLeft: 8,
+    marginLeft: 4,
   },
   authButtonText: {
     fontWeight: '600',
     marginLeft: 6,
+    display: Platform.OS === 'web' ? 'flex' : 'none', // Keeps headers pristine on tightly packed mobile displays
   },
 
   badge: { position: 'absolute', top: 2, right: 2, minWidth: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, borderWidth: 1.5 },
