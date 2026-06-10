@@ -26,6 +26,23 @@ SplashScreen.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator();
 
+// Define the linking configuration to sync with the browser URL
+const linking = {
+  prefixes: ['http://localhost:8081', 'https://your-production-url.com'],
+  config: {
+    initialRouteName: 'Home' as const,
+    screens: {
+      Home: '', 
+      Login: 'login', 
+      Register: 'register',
+      ProductDetails: 'product',
+      Cart: 'cart',
+      Checkout: 'checkout',
+      AdminOrders: 'admin/orders', 
+    },
+  },
+};
+
 export default function App() {
   const scheme = useColorScheme();
 
@@ -51,8 +68,13 @@ export default function App() {
       {/* AuthProvider wraps everything so user state is accessible globally */}
       <AuthProvider>
         <CartProvider>
-          <NavigationContainer theme={scheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack.Navigator initialRouteName="Login">
+          {/* Pass the linking object into the NavigationContainer */}
+          <NavigationContainer 
+            linking={linking} 
+            theme={scheme === 'dark' ? DarkTheme : DefaultTheme}
+          >
+            {/* Change initialRouteName to Home so Guest users don't get trapped */}
+            <Stack.Navigator initialRouteName="Home">
               <Stack.Screen name="AdminOrders" component={AdminOrdersScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />

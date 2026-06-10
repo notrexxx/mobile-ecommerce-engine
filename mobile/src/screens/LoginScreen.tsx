@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,6 +16,7 @@ import StyledText from '../components/StyledText';
 import PremiumButton from '../components/PremiumButton';
 import PremiumInput from '../components/PremiumInput';
 import { supabase } from '../utils/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -26,6 +27,16 @@ export default function LoginScreen({ navigation }: any) {
   const theme = isDark ? darkTheme : lightTheme;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
+
+  // Bring in the auth context to check if a user is already logged in
+  const { user } = useAuth();
+
+  // Auth Guard: If the user is already authenticated, instantly redirect to Home
+  useEffect(() => {
+    if (user) {
+      navigation.replace('Home');
+    }
+  }, [user, navigation]);
 
   const handleLogin = async () => {
     if (!email || !password) {

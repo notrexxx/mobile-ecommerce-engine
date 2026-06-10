@@ -24,7 +24,7 @@ import PremiumButton from '../components/PremiumButton';
 
 export default function CheckoutScreen({ navigation }: any) {
   const { cart, getCartTotal, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [address, setAddress] = useState('');
@@ -36,8 +36,26 @@ export default function CheckoutScreen({ navigation }: any) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
+  const handleLogout = async () => {
+    if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await signOut();
+      Toast.show({
+        type: 'success',
+        text1: 'Logged Out',
+        text2: 'You have been securely signed out.',
+      });
+      navigation.replace('Login');
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Logout Failed',
+        text2: error.message,
+      });
+    }
+  };
+
   const handlePayment = async () => {
-    // 1. Validate Form Fields
     if (!address || !city || !zipCode) {
       Toast.show({
         type: 'error',
@@ -47,7 +65,6 @@ export default function CheckoutScreen({ navigation }: any) {
       return;
     }
 
-    // 2. Validate Cart
     if (cart.length === 0) {
       Toast.show({
         type: 'info',
@@ -57,7 +74,6 @@ export default function CheckoutScreen({ navigation }: any) {
       return;
     }
 
-    // 3. Validate Authentication Session
     if (!user) {
       Toast.show({
         type: 'error',
@@ -72,12 +88,11 @@ export default function CheckoutScreen({ navigation }: any) {
     setIsProcessing(true);
 
     try {
-      // 4. Push order strictly to the Supabase orders table
       const { error } = await supabase
         .from('orders')
         .insert({
           user_id: user.id,
-          items: cart, // Supabase automatically handles the cart array as JSONB
+          items: cart, 
           total: getCartTotal(),
           status: 'pending'
         });
@@ -124,7 +139,17 @@ export default function CheckoutScreen({ navigation }: any) {
           
           <Image source={require('../../assets/tech-logo.png')} style={[styles.headerLogo, { tintColor: theme.text }]} resizeMode="contain" />
           
-          <View style={styles.iconButton} /> 
+          {user ? (
+            <TouchableOpacity onPress={handleLogout} style={styles.authButtonWrapper}>
+              <Ionicons name="log-out-outline" size={24} color={theme.text} />
+              <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Log Out</StyledText>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.authButtonWrapper}>
+              <Ionicons name="person-outline" size={24} color={theme.text} />
+              <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Log In</StyledText>
+            </TouchableOpacity>
+          )}
         </View>
       </BlurView>
 
@@ -204,6 +229,8 @@ const styles = StyleSheet.create({
   },
   headerLogo: { width: 150, height: 45 },
   iconButton: { width: 40, alignItems: 'flex-start' },
+  authButtonWrapper: { flexDirection: 'row', alignItems: 'center', padding: 8 },
+  authButtonText: { fontWeight: '600', marginLeft: 6 },
   scrollContent: {
     paddingTop: Platform.OS === 'ios' ? 110 : 90, 
     paddingBottom: Platform.OS === 'ios' ? 140 : 120,
