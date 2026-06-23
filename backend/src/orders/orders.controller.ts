@@ -1,5 +1,6 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param } from '@nestjs/common';
 import { OrdersService } from './orders.service';
+import { User } from '../users/user.entity';
 
 @Controller('orders')
 export class OrdersController {
@@ -9,6 +10,18 @@ export class OrdersController {
   async checkout(
     @Body() body: { userId: string; cartItems: { productId: string; quantity: number }[] }
   ) {
-    return this.ordersService.processCheckout(body.userId, body.cartItems);
+    const userReference = { id: body.userId } as User;
+    
+    return this.ordersService.create(userReference, body.cartItems);
+  }
+
+  @Get()
+  async findAll() {
+    return this.ordersService.findAll();
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.ordersService.findOne(id);
   }
 }
