@@ -7,7 +7,9 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:mobile\"",
     "dev:backend": "cd backend && npm run start:dev",
     "dev:mobile": "cd mobile && npx expo start -c",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "cd backend && npm install && npm run build"
+    
   },
   "repository": {
     "type": "git",
