@@ -11,17 +11,14 @@ export class Product {
   @Column('text')
   description!: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column('decimal', { precision: 10, scale: 2 })
   price!: number;
 
-  @Column('int')
-  stock!: number;
+  @Column('int', { default: 0 })
+  stock: number = 0;
 
-  @Column()
-  imageUrl!: string;
-
-  @Column()
-  category!: string;
+  @Column({ nullable: true })
+  imageUrl?: string;
 
   @CreateDateColumn()
   createdAt!: Date;

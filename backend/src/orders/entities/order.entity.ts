@@ -1,25 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany } from 'typeorm';
-import type { Relation } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from '../../users/user.entity';
 
-@Entity('order_items')
-export class OrderItem {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+export enum OrderStatus {
+  PENDING = 'pending',
+  PAID = 'paid',
+  SHIPPED = 'shipped',
+  DELIVERED = 'delivered',
+  CANCELLED = 'cancelled'
+}
 
-  @ManyToOne(() => Order, order => order.items, { onDelete: 'CASCADE' })
-  order!: Relation<Order>;
-
-  @Column()
-  productId!: string;
-
-  @Column()
-  productName!: string;
-
-  @Column('decimal', { precision: 10, scale: 2 })
-  price!: number;
-
-  @Column('int')
-  quantity!: number;
+export interface OrderItem {
+  productId: string;
+  quantity: number;
+  price: number;
 }
 
 @Entity('orders')
@@ -27,15 +20,25 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column()
-  userId!: string;
+  @ManyToOne(() => User, (user) => user.id, { eager: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user!: User;
 
   @Column('decimal', { precision: 10, scale: 2 })
   totalAmount!: number;
 
-  @OneToMany(() => OrderItem, orderItem => orderItem.order, { cascade: true })
-  items!: Relation<OrderItem>[];
+  @Column({
+    type: 'varchar',
+    default: OrderStatus.PENDING,
+  })
+  status: OrderStatus = OrderStatus.PENDING;
+
+  @Column('simple-json')
+  items!: OrderItem[];
 
   @CreateDateColumn()
   createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
 }
