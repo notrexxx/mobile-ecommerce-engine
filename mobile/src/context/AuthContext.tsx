@@ -1,86 +1,89 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
-import { supabase } from '../utils/supabase';
-import { Session, User } from '@supabase/supabase-js';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiClient } from '../api/client';
 
-type Profile = {
+// Define the exact shape of the User object returned by our NestJS backend
+interface User {
   id: string;
   email: string;
-  is_admin: boolean;
-};
+  role: 'admin' | 'customer';
+}
 
-type AuthContextType = {
-  session: Session | null;
+interface AuthContextType {
   user: User | null;
-  profile: Profile | null;
+  token: string | null;
   isLoading: boolean;
-  signOut: () => Promise<void>;
-};
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+}
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // App Bootup Sequence: Check if the user closed the app without logging out
   useEffect(() => {
-    // Check active session on load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else setIsLoading(false);
-    });
+    const loadSession = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('@ecommerce_jwt');
+        const storedUser = await AsyncStorage.getItem('@ecommerce_user');
 
-    // Listen for login/logout events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-        setIsLoading(false);
+        if (storedToken && storedUser) {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.error('Failed to restore session:', error);
+      } finally {
+        setIsLoading(false); // Tell the app we are done checking, remove the splash screen
       }
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    loadSession();
   }, []);
 
-  // Fetch the custom role from our new profiles table
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-        
-      if (error) throw error;
-      setProfile(data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const login = async (email: string, password: string) => {
+    // Send the request to our newly built backend
+    const response = await apiClient.post('/auth/login', { email, password });
+    
+    const { user: backendUser, token: backendToken } = response.data;
+
+    // Save to State
+    setUser(backendUser);
+    setToken(backendToken);
+
+    // Save to Device Storage (Persistence)
+    await AsyncStorage.setItem('@ecommerce_jwt', backendToken);
+    await AsyncStorage.setItem('@ecommerce_user', JSON.stringify(backendUser));
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const register = async (email: string, password: string) => {
+    const response = await apiClient.post('/auth/register', { email, password });
+    
+    const { user: backendUser, token: backendToken } = response.data;
+
+    setUser(backendUser);
+    setToken(backendToken);
+
+    await AsyncStorage.setItem('@ecommerce_jwt', backendToken);
+    await AsyncStorage.setItem('@ecommerce_user', JSON.stringify(backendUser));
+  };
+
+  const logout = async () => {
+    setUser(null);
+    setToken(null);
+    // Securely wipe the keys from the phone
+    await AsyncStorage.removeItem('@ecommerce_jwt');
+    await AsyncStorage.removeItem('@ecommerce_user');
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isLoading, signOut }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+};
