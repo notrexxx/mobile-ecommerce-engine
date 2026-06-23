@@ -2,50 +2,64 @@ import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/co
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '../users/user.entity';
 import * as bcrypt from 'bcryptjs';
+import { User } from '../users/user.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>,
-    private jwtService: JwtService,
+    private readonly userRepository: Repository<User>,
+    private readonly jwtService: JwtService,
   ) {}
 
-  async register(email: string, pass: string) {
-    // 1. Check if user already exists
+  async register(email: string, password: string): Promise<{ user: Partial<User>; token: string }> {
+    // 1. Check if the user already exists
     const existingUser = await this.userRepository.findOne({ where: { email } });
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException('A user with this email already exists.');
     }
 
-    // 2. Hash the password securely
-    const passwordHash = await bcrypt.hash(pass, 10);
-    
-    // 3. Save to database
-    const user = this.userRepository.create({ email, passwordHash });
+    // 2. Create the new user. 
+    // The @BeforeInsert() hook in user.entity.ts will automatically salt and hash this password!
+    const user = this.userRepository.create({
+      email,
+      passwordHash: password, 
+    });
+
+    // 3. Save to Supabase
     await this.userRepository.save(user);
 
-    // 4. Auto-login the user after successful registration
-    return this.login(user.email, pass);
+    // 4. Generate the JWT session token
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const token = this.jwtService.sign(payload);
+
+    // 5. Strip the passwordHash out of the object before returning it to the frontend
+    const { passwordHash, ...safeUser } = user;
+    
+    return { user: safeUser, token };
   }
 
-  async login(email: string, pass: string) {
-    // 1. Find user by email
+  async login(email: string, password: string): Promise<{ user: Partial<User>; token: string }> {
+    // 1. Find the user by email
     const user = await this.userRepository.findOne({ where: { email } });
-    
-    // 2. Compare passwords
-    if (!user || !(await bcrypt.compare(pass, user.passwordHash))) {
+    if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // 3. Generate the JWT Payload
+    // 2. Compare the provided password against the hashed database value
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // 3. Generate the JWT session token
     const payload = { sub: user.id, email: user.email, role: user.role };
-    
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: { id: user.id, email: user.email, role: user.role }
-    };
+    const token = this.jwtService.sign(payload);
+
+    // 4. Strip the passwordHash out of the object
+    const { passwordHash, ...safeUser } = user;
+
+    return { user: safeUser, token };
   }
 }

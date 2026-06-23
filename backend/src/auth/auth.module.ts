@@ -1,20 +1,30 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
+import { JwtStrategy } from './jwt.strategy';
 
 @Module({
   imports: [
     UsersModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: 'SUPER_SECRET_ECOMMERCE_KEY_DO_NOT_USE_IN_PROD',
-      signOptions: { expiresIn: '7d' }, 
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        // We add the '!' here to guarantee the secret exists
+        secret: configService.get<string>('JWT_SECRET')!,
+        signOptions: { 
+          // We cast this to 'any' to bypass the pedantic 'StringValue' literal requirement from jsonwebtoken
+          expiresIn: configService.get<string>('JWT_EXPIRES_IN', '7d') as any,
+        },
+      }),
     }),
   ],
-  providers: [AuthService],
+  providers: [AuthService, JwtStrategy],
   controllers: [AuthController],
   exports: [AuthService, JwtModule, PassportModule],
 })
