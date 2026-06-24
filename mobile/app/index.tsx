@@ -20,7 +20,8 @@ import { lightTheme, darkTheme } from '../src/theme/theme';
 import StyledText from '../src/components/StyledText';
 import { useCart } from '../src/context/CartContext';
 import { AuthContext } from '../src/context/AuthContext'; 
-import { apiClient } from '../src/api/client'; 
+// 🚀 THE FIX: Swapped apiClient for supabase!
+import { supabase } from '../src/utils/supabase';
 
 const CATEGORIES = ['All', 'Audio', 'Peripherals', 'Displays', 'Gaming', 'Photography', 'Accessories'];
 const CARD_MARGIN = 16;
@@ -54,24 +55,30 @@ export default function HomeScreen() {
 
   const cartItemCount = cart ? cart.reduce((total: any, item: any) => total + item.quantity, 0) : 0;
 
+  // 🚀 THE FIX: Fetch directly from Supabase instead of a backend server
   const fetchProducts = useCallback(async () => {
     try {
-      const response = await apiClient.get('/products');
-      setProducts(response.data);
+      const { data, error } = await supabase.from('products').select('*');
+      if (error) throw error;
+      setProducts(data || []);
     } catch (error) {
-      console.error('Error fetching products from Vercel:', error);
+      console.error('Error fetching products from Supabase:', error);
+      setProducts([]); 
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  // 🚀 THE FIX: Count orders directly from Supabase
   const fetchOrderCount = useCallback(async () => {
     if (isAdmin) {
       try {
-        const response = await apiClient.get('/orders');
-        setOrderCount(response.data.length); 
+        const { count, error } = await supabase.from('orders').select('*', { count: 'exact', head: true });
+        if (error) throw error;
+        setOrderCount(count || 0); 
       } catch (err) {
         console.error('Error fetching orders:', err);
+        setOrderCount(0);
       }
     }
   }, [isAdmin]);
@@ -117,7 +124,7 @@ export default function HomeScreen() {
     }
   };
 
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = (products || []).filter(p => {
     const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
     const hasInventory = p.stock > 0;
     return matchesCategory && hasInventory;
@@ -183,13 +190,20 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, { maxWidth: MAX_CONTENT_WIDTH, width: '100%', alignSelf: 'center' }]}
           columnWrapperStyle={{ justifyContent: 'flex-start', gap: CARD_MARGIN, marginBottom: CARD_MARGIN }}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', marginTop: 100 }}>
+              <Ionicons name="cube-outline" size={48} color={theme.border} />
+              <StyledText variant="body" style={{ color: theme.subtext, marginTop: 16 }}>
+                No products available at the moment.
+              </StyledText>
+            </View>
+          }
         />
       )}
 
       <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={[styles.headerBlur, { borderBottomColor: theme.border }]}>
         <View style={[styles.headerContent, { paddingHorizontal: isDesktop ? 48 : 16 }]}>
           <TouchableOpacity onPress={() => router.replace('/')} activeOpacity={0.8}>
-            {/* The single fix is on the line below: ../assets/tech-logo.png */}
             <Image source={require('../assets/tech-logo.png')} style={[styles.headerLogo, { tintColor: theme.text }]} resizeMode="contain" />
           </TouchableOpacity>
 
