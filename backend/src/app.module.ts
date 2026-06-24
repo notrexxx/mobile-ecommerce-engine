@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { User } from './users/user.entity';
 import { Product } from './products/product.entity';
 import { Order } from './orders/entities/order.entity';
+import { StripeModule } from './stripe/stripe.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { Order } from './orders/entities/order.entity';
     ProductsModule,
     OrdersModule,
     AuthModule,
+    StripeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,124 +1,90 @@
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  Platform,
-  useColorScheme,
-  Image,
-  TouchableOpacity,
-  useWindowDimensions,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, Platform, useColorScheme, Image, TouchableOpacity, useWindowDimensions, ScrollView } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import { useAuth } from '../../src/context/AuthContext';
 import { lightTheme, darkTheme } from '../../src/theme/theme';
 import StyledText from '../../src/components/StyledText';
 
 export default function AdminOrderDetailsScreen() {
   const router = useRouter();
-  
   const { orderStr } = useLocalSearchParams();
   const order = orderStr ? JSON.parse(orderStr as string) : null;
-
-  const { user, logout } = useAuth();
   
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
-  if (!order) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <StyledText variant="h2">Order not found.</StyledText>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <StyledText variant="body" style={{ color: theme.primary }}>Go Back</StyledText>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  if (!order) return null;
 
-  const orderDate = new Date(order.created_at).toLocaleString();
+  const orderDate = new Date(order.createdAt || order.created_at).toLocaleString();
   const isPending = order.status === 'pending';
-
-  const handleLogout = async () => {
-    if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      await logout();
-      Toast.show({ type: 'success', text1: 'Logged Out', text2: 'You have been securely signed out.' });
-      router.replace('/(auth)/login');
-    } catch (error: any) {
-      Toast.show({ type: 'error', text1: 'Logout Failed', text2: error.message });
-    }
-  };
+  const parsedItems = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+  
+  // Parse the shipping JSON
+  const shipping = typeof order.shippingDetails === 'string' ? JSON.parse(order.shippingDetails) : (order.shippingDetails || {});
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      
       <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={[styles.headerBlur, { borderBottomColor: theme.border }]}>
         <View style={[styles.headerContent, { paddingHorizontal: isDesktop ? 48 : 16 }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
             <Ionicons name="arrow-back" size={24} color={theme.text} />
           </TouchableOpacity>
-          <StyledText variant="h3">Order Summary</StyledText>
-          
-          {user ? (
-            <TouchableOpacity onPress={handleLogout} style={styles.authButtonWrapper}>
-              <Ionicons name="log-out-outline" size={24} color={theme.text} />
-              <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Log Out</StyledText>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.iconButton} />
-          )}
+          <StyledText variant="h3">Order Details</StyledText>
+          <View style={styles.iconButton} />
         </View>
       </BlurView>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {/* Core Info Box */}
         <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.infoHeader}>
             <StyledText variant="h3">ID: {order.id.substring(0, 8).toUpperCase()}</StyledText>
             <View style={[styles.statusBadge, { backgroundColor: isPending ? '#FF9500' : '#34C759' }]}>
-              <StyledText variant="caption" style={{ color: '#FFFFFF', fontWeight: '700', textTransform: 'uppercase' }}>
-                {order.status}
-              </StyledText>
+              <StyledText variant="caption" style={{ color: '#FFFFFF', fontWeight: '700', textTransform: 'uppercase' }}>{order.status}</StyledText>
             </View>
           </View>
-          
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           
+          {/* THE FIX: Stacked Name on top of Email cleanly */}
           <View style={styles.infoRow}>
             <StyledText variant="body" style={{ color: theme.subtext }}>Customer</StyledText>
-            {/* THE FIX: Display the user_id instead of the broken email lookup */}
-            <StyledText variant="body" style={{ fontWeight: '600' }}>
-              {order.user_id ? `User ID: ${order.user_id.substring(0, 8).toUpperCase()}` : 'Unknown User'}
-            </StyledText>
+            <View style={{ alignItems: 'flex-end' }}>
+              <StyledText variant="body" style={{ fontWeight: '600' }}>{shipping.name || 'Unknown Name'}</StyledText>
+              <StyledText variant="caption" style={{ color: theme.subtext }}>{order.customerEmail || 'Legacy Order'}</StyledText>
+            </View>
           </View>
+
           <View style={styles.infoRow}>
             <StyledText variant="body" style={{ color: theme.subtext }}>Date Placed</StyledText>
             <StyledText variant="body" style={{ fontWeight: '600' }}>{orderDate}</StyledText>
           </View>
           <View style={styles.infoRow}>
-            <StyledText variant="body" style={{ color: theme.subtext }}>Total Value</StyledText>
-            <StyledText variant="h3">${Number(order.totalAmount || order.total || 0).toFixed(2)}</StyledText>
+            <StyledText variant="body" style={{ color: theme.subtext }}>Stripe TXN</StyledText>
+            <StyledText variant="caption" style={{ fontWeight: '600', color: theme.primary }}>{order.stripePaymentId || 'N/A'}</StyledText>
           </View>
+        </View>
+
+        {/* Shipping Box */}
+        <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 32 }]}>
+          <StyledText variant="h3" style={{ marginBottom: 16 }}>Shipping Destination</StyledText>
+          <StyledText variant="body" style={{ fontWeight: '600' }}>{shipping.address || 'No Address Provided'}</StyledText>
+          <StyledText variant="body" style={{ color: theme.subtext, marginTop: 4 }}>
+            {shipping.city ? `${shipping.city}, ${shipping.zipCode}` : ''}
+          </StyledText>
         </View>
 
         <StyledText variant="h2" style={styles.sectionTitle}>Purchased Items</StyledText>
         
-        {order.items?.map((item: any, index: number) => (
+        {parsedItems.map((item: any, index: number) => (
           <View key={index} style={[styles.itemCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.imageContainer}>
-              {/* Added fallback to Ionicons if image breaks */}
-              {item.product?.imageUrl || item.product?.image_url ? (
-                <Image source={{ uri: item.product.imageUrl || item.product.image_url }} style={styles.image} />
+              {item.imageUrl ? (
+                <Image source={{ uri: item.imageUrl }} style={styles.image} />
               ) : (
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                   <Ionicons name="hardware-chip-outline" size={40} color={theme.subtext} />
@@ -127,7 +93,7 @@ export default function AdminOrderDetailsScreen() {
             </View>
             <View style={styles.itemDetails}>
               <View>
-                <StyledText variant="body" style={{ fontWeight: '600' }} numberOfLines={1}>{item.name || item.product?.name}</StyledText>
+                <StyledText variant="body" style={{ fontWeight: '600' }} numberOfLines={1}>{item.name}</StyledText>
               </View>
               <View style={styles.itemPriceRow}>
                 <StyledText variant="body" style={{ fontWeight: '600' }}>{item.quantity}x</StyledText>
@@ -146,10 +112,8 @@ const styles = StyleSheet.create({
   headerBlur: { position: 'absolute', top: 0, left: 0, right: 0, width: '100%', zIndex: 999, elevation: 20, borderBottomWidth: StyleSheet.hairlineWidth },
   headerContent: { paddingTop: Platform.OS === 'ios' ? 44 : 20, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   iconButton: { width: 80, alignItems: 'flex-start', justifyContent: 'center' },
-  authButtonWrapper: { flexDirection: 'row', alignItems: 'center', padding: 8 },
-  authButtonText: { fontWeight: '600', marginLeft: 6 },
   scrollContent: { paddingTop: Platform.OS === 'ios' ? 120 : 100, paddingBottom: 120, paddingHorizontal: 16, maxWidth: 800, width: '100%', alignSelf: 'center' },
-  infoCard: { borderRadius: 16, borderWidth: 1, padding: 24, marginBottom: 32 },
+  infoCard: { borderRadius: 16, borderWidth: 1, padding: 24, marginBottom: 16 },
   infoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   divider: { height: 1, width: '100%', marginVertical: 16 },

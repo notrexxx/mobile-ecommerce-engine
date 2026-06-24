@@ -13,6 +13,8 @@ export interface OrderItem {
   productId: string;
   quantity: number;
   price: number;
+  name?: string;     
+  imageUrl?: string; 
 }
 
 @Entity('orders')
@@ -35,6 +37,16 @@ export class Order {
 
   @Column('simple-json')
   items!: OrderItem[];
+
+  // 🚀 THE FIX: Added '?' to tell TypeScript these fields are officially optional!
+  @Column({ type: 'varchar', nullable: true })
+  customerEmail?: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  shippingDetails?: any;
+
+  @Column({ type: 'varchar', nullable: true })
+  stripePaymentId?: string;
 
   @CreateDateColumn()
   createdAt!: Date;

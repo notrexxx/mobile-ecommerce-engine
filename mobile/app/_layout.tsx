@@ -11,6 +11,7 @@ import { AuthProvider } from '../src/context/AuthContext';
 import { CartProvider } from '../src/context/CartContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import { StripeProvider } from '../src/utils/stripe';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -36,20 +37,22 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <CartProvider>
-          {/* THE FIX: We use a Stack to control exactly how screens transition */}
-          <Stack screenOptions={{ headerShown: false }}>
-            
-            {/* The Product screen is explicitly forced to be a transparent overlay */}
-            <Stack.Screen 
-              name="product/[id]" 
-              options={{ 
-                presentation: 'transparentModal', 
-                animation: 'fade',
-                contentStyle: { backgroundColor: 'transparent' } 
-              }} 
-            />
-
-          </Stack>
+          {/* 2. Wrap the navigation stack and inject your secure public key */}
+          <StripeProvider 
+            publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY as string}
+            merchantIdentifier="merchant.com.techstore" // Used for Apple Pay later
+          >
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen 
+                name="product/[id]" 
+                options={{ 
+                  presentation: 'transparentModal', 
+                  animation: 'fade',
+                  contentStyle: { backgroundColor: 'transparent' } 
+                }} 
+              />
+            </Stack>
+          </StripeProvider>
         </CartProvider>
       </AuthProvider>
       <Toast />

@@ -31,7 +31,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.techstore",
+          "enableApplePay": true
+        }
+      ]
     ]
   }
 }

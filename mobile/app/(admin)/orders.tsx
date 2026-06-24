@@ -142,11 +142,14 @@ export default function AdminOrdersScreen() {
     const orderDate = new Date(item.createdAt || item.created_at).toLocaleDateString();
     const isPending = item.status === 'pending';
 
-    // THE FIX: Safely parse the JSON string into an array if Supabase returned it as raw text
     const parsedItems = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
-    
-    // Now it is guaranteed to be an array, so .reduce will not crash
     const itemCount = parsedItems.reduce((acc: number, cartItem: any) => acc + (cartItem.quantity || 0), 0);
+
+    const finalUserId = item.userId || item.user_id;
+    
+    // THE FIX: Parse the shipping details to grab the name
+    const shipping = typeof item.shippingDetails === 'string' ? JSON.parse(item.shippingDetails) : (item.shippingDetails || {});
+    const displayName = shipping.name ? `${shipping.name} • ` : (finalUserId ? '' : 'Unknown User • ');
 
     return (
       <TouchableOpacity 
@@ -158,7 +161,7 @@ export default function AdminOrdersScreen() {
           <View>
             <StyledText variant="caption" style={{ color: theme.subtext }}>Order ID: {item.id.substring(0, 8).toUpperCase()}</StyledText>
             <StyledText variant="body" style={{ fontWeight: '600', marginTop: 4 }}>
-              {item.user_id ? `User ID: ${item.user_id.substring(0, 8).toUpperCase()}` : 'Unknown User'}
+              {displayName}{item.customerEmail ? item.customerEmail : 'Legacy Order'}
             </StyledText>
           </View>
           <StyledText variant="h3">${Number(item.totalAmount || item.total || 0).toFixed(2)}</StyledText>
