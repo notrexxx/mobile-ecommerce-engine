@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,32 +11,37 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
-import { lightTheme, darkTheme } from '../theme/theme';
-import StyledText from '../components/StyledText';
-import PremiumButton from '../components/PremiumButton';
-import PremiumInput from '../components/PremiumInput';
-import { supabase } from '../utils/supabase';
-import { useAuth } from '../context/AuthContext';
+import { useRouter } from 'expo-router';
 
-export default function LoginScreen({ navigation }: any) {
+// Adjusting imports to point correctly to your src folder from the app/(auth) directory
+import { lightTheme, darkTheme } from '../../src/theme/theme';
+import StyledText from '../../src/components/StyledText';
+import PremiumButton from '../../src/components/PremiumButton';
+import PremiumInput from '../../src/components/PremiumInput';
+import { AuthContext } from '../../src/context/AuthContext';
+
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
-  // Bring in the auth context to check if a user is already logged in
-  const { user } = useAuth();
+  // 1. Swap Navigation for Expo Router
+  const router = useRouter();
+  
+  // 2. Bring in the NestJS auth context
+  const { user, login } = useContext(AuthContext)!;
 
   // Auth Guard: If the user is already authenticated, instantly redirect to Home
   useEffect(() => {
     if (user) {
-      navigation.replace('Home');
+      router.replace('/');
     }
-  }, [user, navigation]);
+  }, [user]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -44,28 +49,26 @@ export default function LoginScreen({ navigation }: any) {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     
-    // Authenticate securely with Supabase
-    const { error } = await supabase.auth.signInWithPassword({ 
-      email: email.trim(), 
-      password 
-    });
-
-    setIsLoading(false);
-
-    if (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Login Failed',
-        text2: error.message,
-      });
-    } else {
+    try {
+      // 3. Authenticate securely through our NestJS/Vercel Backend
+      await login(email.trim(), password);
+      
       Toast.show({
         type: 'success',
         text1: 'Welcome back!',
       });
-      navigation.replace('Home');
+      
+      router.replace('/');
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Login Failed',
+        text2: error.response?.data?.message || 'Invalid credentials or server error.',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -80,7 +83,7 @@ export default function LoginScreen({ navigation }: any) {
             left: isDesktop ? 48 : 16,
           }
         ]}
-        onPress={() => navigation.navigate('Home')}
+        onPress={() => router.replace('/')}
         activeOpacity={0.8}
       >
         <Image 
@@ -105,26 +108,26 @@ export default function LoginScreen({ navigation }: any) {
               keyboardType="email-address" 
               value={email} 
               onChangeText={setEmail} 
-              editable={!isLoading} 
+              editable={!isSubmitting} 
             />
             <PremiumInput 
               placeholder="Password" 
               secureTextEntry 
               value={password} 
               onChangeText={setPassword} 
-              editable={!isLoading} 
+              editable={!isSubmitting} 
             />
 
             <TouchableOpacity style={styles.forgotPassword}>
               <StyledText variant="caption" style={{ color: theme.subtext }}>Forgot Password?</StyledText>
             </TouchableOpacity>
 
-            <PremiumButton title="Sign In" onPress={handleLogin} isLoading={isLoading} />
+            <PremiumButton title="Sign In" onPress={handleLogin} isLoading={isSubmitting} />
           </View>
 
           <View style={styles.footer}>
             <StyledText variant="subtext">Don't have an account? </StyledText>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
               <StyledText variant="body" style={{ color: theme.text, fontWeight: '700' }}>Create one</StyledText>
             </TouchableOpacity>
           </View>

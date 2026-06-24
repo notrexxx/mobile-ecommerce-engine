@@ -1,4 +1,3 @@
-// mobile/src/components/PremiumButton.tsx
 import React, { useRef } from 'react';
 import { 
   Text, 
@@ -90,14 +89,14 @@ const styles = StyleSheet.create({
   button: {
     height: 56,
     width: '100%',
-    borderRadius: 16, // Softer, modern radius
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
   },
   text: {
+    fontFamily: 'Inter_700Bold', // <-- THE FIX: Explicitly forcing the loaded font
     fontSize: 17,
-    fontWeight: '700',
     letterSpacing: 0.5,
   },
 });

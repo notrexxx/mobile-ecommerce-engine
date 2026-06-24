@@ -27,7 +27,6 @@ export default function PremiumInput({
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
 
-  // Determine border color based on state
   let currentBorderColor = theme.border;
   if (error) {
     currentBorderColor = theme.danger;
@@ -50,7 +49,7 @@ export default function PremiumInput({
             backgroundColor: theme.surface,
             color: theme.text,
             borderColor: currentBorderColor,
-            // Subtle shadow for modern depth on iOS/Web
+            fontFamily: 'Inter_400Regular', // <-- THE FIX: Aggressively applied inline
             ...Platform.select({
               ios: {
                 shadowColor: theme.primary,
@@ -60,7 +59,7 @@ export default function PremiumInput({
               },
               web: {
                 boxShadow: isFocused ? `0px 2px 8px rgba(0,0,0,0.05)` : 'none',
-              }
+              } as any
             })
           },
           style,
@@ -97,11 +96,10 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 56,
-    borderRadius: 16, // Softer modern radius
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 16,
     fontSize: 16,
-    fontFamily: 'Inter_400Regular',
   },
   error: {
     marginTop: 6,

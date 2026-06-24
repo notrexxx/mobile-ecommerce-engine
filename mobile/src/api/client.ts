@@ -2,13 +2,10 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Architectural Decision: Dynamically route local traffic based on the OS.
-// In a production build, this would read from EXPO_PUBLIC_API_URL in your .env file.
 const getBaseUrl = () => {
   if (process.env.NODE_ENV === 'production') {
     return 'https://mobile-ecommerce-engine-nygp.vercel.app';
   }
-  // Android Emulators require 10.0.2.2 to access the Windows localhost
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:3000';
   }
