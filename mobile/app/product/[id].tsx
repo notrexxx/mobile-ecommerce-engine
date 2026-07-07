@@ -13,17 +13,17 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router'; // Swapped for Expo Router
+import { useLocalSearchParams, useRouter } from 'expo-router'; 
 
-// Notice the double dots (../../) because we are inside app/product/
 import { lightTheme, darkTheme } from '../../src/theme/theme';
 import StyledText from '../../src/components/StyledText';
 import PremiumButton from '../../src/components/PremiumButton';
 import { useCart } from '../../src/context/CartContext';
-import { apiClient } from '../../src/api/client'; // Adding our Vercel client
+
+// 🚀 THE FIX: Swapped apiClient for Supabase!
+import { supabase } from '../../src/utils/supabase';
 
 export default function ProductDetailsScreen() {
-  // 1. Get the dynamic ID from the URL (e.g., /product/123)
   const { id } = useLocalSearchParams();
   const router = useRouter();
   
@@ -38,14 +38,20 @@ export default function ProductDetailsScreen() {
   const { width, height } = useWindowDimensions();
   const isDesktop = width >= 768;
 
-  // 2. Fetch the pristine, up-to-date product data from Vercel based on the ID
+  // 🚀 THE FIX: Fetch directly from Supabase instead of the backend
   useEffect(() => {
     const fetchProductDetails = async () => {
       try {
-        const response = await apiClient.get(`/products/${id}`);
-        setProduct(response.data);
+        const { data, error: fetchError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (fetchError) throw fetchError;
+        setProduct(data);
       } catch (err) {
-        console.error('Failed to load product:', err);
+        console.error('Failed to load product from Supabase:', err);
         setError('Could not load product details.');
       } finally {
         setIsLoading(false);
@@ -66,11 +72,10 @@ export default function ProductDetailsScreen() {
     
     setTimeout(() => {
       setIsAdding(false);
-      router.back(); // 3. Swapped navigation.goBack() for router.back()
+      router.back(); 
     }, 600);
   };
 
-  // 4. Handle Loading and Error States elegantly before rendering the UI
   if (isLoading) {
     return (
       <View style={[styles.overlayContainer, { backgroundColor: theme.background }]}>
