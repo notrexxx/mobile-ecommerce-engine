@@ -3,9 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://mobile-ecommerce-engine-nygp.vercel.app';
+  // 🚀 THE FIX: Use the Vercel Environment Variable first!
+  // If it's missing, you can hardcode your Render URL as the fallback inside the quotes below.
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL; 
   }
+  
+  // Fallbacks for local development
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:3000';
   }
