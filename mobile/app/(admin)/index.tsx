@@ -77,19 +77,17 @@ export default function AdminDashboard() {
       <View style={styles.headerContainer}>
         <View>
           <StyledText variant="h1">Command Center</StyledText>
-          <StyledText variant="body" style={{ color: theme.subtext, marginTop: 8 }}>
-            Store metrics and inventory control hub.
-          </StyledText>
+          <StyledText variant="body" style={{ color: theme.subtext, marginTop: 8 }}>Store metrics and inventory control hub</StyledText>
         </View>
 
-        {/* 🚀 QUICK ACTION: ADD PRODUCT */}
+        {/* 🚀 FIXED: New Product Button with proper icon */}
         <TouchableOpacity 
           style={[styles.quickActionButton, { backgroundColor: theme.primary }]}
-          onPress={() => router.push('/(admin)/edit-product')}
+          onPress={() => router.push('/(admin)/product-form')}
         >
-          <Ionicons name="add-circle" size={20} color={theme.background} />
+          <Ionicons name="cube" size={20} color={theme.background} />
           <StyledText variant="body" style={{ color: theme.background, fontWeight: '700', marginLeft: 8 }}>
-            Add Product
+            New Product
           </StyledText>
         </TouchableOpacity>
       </View>
@@ -113,7 +111,7 @@ export default function AdminDashboard() {
         </View>
       </View>
 
-      {/* 🚀 BULLETPROOF NATIVE CHART ENGINE */}
+      {/* BULLETPROOF NATIVE CHART ENGINE */}
       <View style={styles.section}>
         <StyledText variant="h3" style={styles.sectionTitle}>Recent Volume Performance</StyledText>
         <View style={[styles.chartContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -148,7 +146,7 @@ export default function AdminDashboard() {
         {lowStockProducts.length === 0 ? (
           <View style={[styles.emptyState, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Ionicons name="checkmark-circle-outline" size={48} color="#34C759" />
-            <StyledText variant="body" style={{ color: theme.subtext, marginTop: 12 }}>All products are fully stocked.</StyledText>
+            <StyledText variant="body" style={{ color: theme.subtext, marginTop: 12 }}>All products are fully stocked</StyledText>
           </View>
         ) : (
           lowStockProducts.map((product) => (

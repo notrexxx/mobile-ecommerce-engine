@@ -1,127 +1,213 @@
-import React from 'react';
-import { View, StyleSheet, Platform, useColorScheme, Image, TouchableOpacity, useWindowDimensions, ScrollView } from 'react-native';
-import { BlurView } from 'expo-blur';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, useColorScheme, Platform, Alert } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import Toast from 'react-native-toast-message';
 
 import { lightTheme, darkTheme } from '../../src/theme/theme';
 import StyledText from '../../src/components/StyledText';
+import PremiumButton from '../../src/components/PremiumButton';
+import { supabase } from '../../src/utils/supabase';
 
-export default function AdminOrderDetailsScreen() {
+export default function OrderDetailsScreen() {
+  const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { orderStr } = useLocalSearchParams();
-  const order = orderStr ? JSON.parse(orderStr as string) : null;
   
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
 
-  if (!order) return null;
+  const [order, setOrder] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const orderDate = new Date(order.createdAt || order.created_at).toLocaleString();
-  const isPending = order.status === 'pending';
+  useEffect(() => {
+    const fetchOrderDetails = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+        setOrder(data);
+      } catch (err) {
+        console.error('Failed to load order:', err);
+        Toast.show({ type: 'error', text1: 'Error', text2: 'Could not load order details.' });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (id) fetchOrderDetails();
+  }, [id]);
+
+  const handleUpdateStatus = async (newStatus: string) => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setOrder({ ...order, status: newStatus });
+      Toast.show({ type: 'success', text1: 'Status Updated', text2: `Order marked as ${newStatus}.` });
+    } catch (err) {
+      console.error('Update failed:', err);
+      Toast.show({ type: 'error', text1: 'Update Failed', text2: 'Could not update status.' });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  if (!order) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <StyledText variant="body" style={{ color: theme.danger }}>Order not found.</StyledText>
+        <TouchableOpacity style={{ marginTop: 20 }} onPress={() => router.back()}>
+          <StyledText variant="body" style={{ color: theme.primary }}>Go Back</StyledText>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Safely parse JSON strings from the database
   const parsedItems = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
-  
-  // Parse the shipping JSON
   const shipping = typeof order.shippingDetails === 'string' ? JSON.parse(order.shippingDetails) : (order.shippingDetails || {});
+  
+  const dateObj = new Date(order.createdAt || order.created_at);
+  const formattedDate = dateObj.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={[styles.headerBlur, { borderBottomColor: theme.border }]}>
-        <View style={[styles.headerContent, { paddingHorizontal: isDesktop ? 48 : 16 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
-          </TouchableOpacity>
-          <StyledText variant="h3">Order Details</StyledText>
-          <View style={styles.iconButton} />
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      
+      {/* HEADER */}
+      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
+        </TouchableOpacity>
+        <View style={{ alignItems: 'center' }}>
+          <StyledText variant="body" style={{ fontWeight: '700' }}>Order Details</StyledText>
+          <StyledText variant="caption" style={{ color: theme.subtext }}>#{order.id.substring(0, 8).toUpperCase()}</StyledText>
         </View>
-      </BlurView>
+        <View style={{ width: 40 }} />
+      </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
-        {/* Core Info Box */}
-        <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.infoHeader}>
-            <StyledText variant="h3">ID: {order.id.substring(0, 8).toUpperCase()}</StyledText>
-            <View style={[styles.statusBadge, { backgroundColor: isPending ? '#FF9500' : '#34C759' }]}>
-              <StyledText variant="caption" style={{ color: '#FFFFFF', fontWeight: '700', textTransform: 'uppercase' }}>{order.status}</StyledText>
-            </View>
-          </View>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          
-          {/* THE FIX: Stacked Name on top of Email cleanly */}
-          <View style={styles.infoRow}>
-            <StyledText variant="body" style={{ color: theme.subtext }}>Customer</StyledText>
-            <View style={{ alignItems: 'flex-end' }}>
-              <StyledText variant="body" style={{ fontWeight: '600' }}>{shipping.name || 'Unknown Name'}</StyledText>
-              <StyledText variant="caption" style={{ color: theme.subtext }}>{order.customerEmail || 'Legacy Order'}</StyledText>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <StyledText variant="body" style={{ color: theme.subtext }}>Date Placed</StyledText>
-            <StyledText variant="body" style={{ fontWeight: '600' }}>{orderDate}</StyledText>
-          </View>
-          <View style={styles.infoRow}>
-            <StyledText variant="body" style={{ color: theme.subtext }}>Stripe TXN</StyledText>
-            <StyledText variant="caption" style={{ fontWeight: '600', color: theme.primary }}>{order.stripePaymentId || 'N/A'}</StyledText>
-          </View>
-        </View>
-
-        {/* Shipping Box */}
-        <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 32 }]}>
-          <StyledText variant="h3" style={{ marginBottom: 16 }}>Shipping Destination</StyledText>
-          <StyledText variant="body" style={{ fontWeight: '600' }}>{shipping.address || 'No Address Provided'}</StyledText>
-          <StyledText variant="body" style={{ color: theme.subtext, marginTop: 4 }}>
-            {shipping.city ? `${shipping.city}, ${shipping.zipCode}` : ''}
+        {/* CURRENT STATUS */}
+        <View style={[styles.statusBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <StyledText variant="caption" style={{ color: theme.subtext, textTransform: 'uppercase', letterSpacing: 1 }}>Current Status</StyledText>
+          <StyledText variant="h2" style={{ marginTop: 4, textTransform: 'capitalize', color: order.status === 'delivered' ? '#34C759' : theme.text }}>
+            {order.status || 'Pending'}
           </StyledText>
+          <StyledText variant="body" style={{ color: theme.subtext, marginTop: 8 }}>Placed on {formattedDate}</StyledText>
         </View>
 
-        <StyledText variant="h2" style={styles.sectionTitle}>Purchased Items</StyledText>
-        
-        {parsedItems.map((item: any, index: number) => (
-          <View key={index} style={[styles.itemCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.imageContainer}>
-              {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.image} />
-              ) : (
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                  <Ionicons name="hardware-chip-outline" size={40} color={theme.subtext} />
-                </View>
-              )}
-            </View>
-            <View style={styles.itemDetails}>
-              <View>
-                <StyledText variant="body" style={{ fontWeight: '600' }} numberOfLines={1}>{item.name}</StyledText>
+        {/* CUSTOMER & SHIPPING */}
+        <View style={styles.section}>
+          <StyledText variant="h3" style={{ marginBottom: 16 }}>Fulfillment Details</StyledText>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.infoRow}>
+              <Ionicons name="mail-outline" size={20} color={theme.subtext} />
+              <View style={styles.infoTextContainer}>
+                <StyledText variant="caption" style={{ color: theme.subtext }}>Customer Email</StyledText>
+                <StyledText variant="body">{order.customerEmail}</StyledText>
               </View>
-              <View style={styles.itemPriceRow}>
-                <StyledText variant="body" style={{ fontWeight: '600' }}>{item.quantity}x</StyledText>
+            </View>
+            
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            
+            <View style={styles.infoRow}>
+              <Ionicons name="home-outline" size={20} color={theme.subtext} />
+              <View style={styles.infoTextContainer}>
+                <StyledText variant="caption" style={{ color: theme.subtext }}>Shipping Address</StyledText>
+                <StyledText variant="body">{shipping.name || 'N/A'}</StyledText>
+                <StyledText variant="body" style={{ color: theme.subtext }}>{shipping.address}</StyledText>
+                <StyledText variant="body" style={{ color: theme.subtext }}>{shipping.city}, {shipping.zipCode}</StyledText>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* ORDER ITEMS */}
+        <View style={styles.section}>
+          <StyledText variant="h3" style={{ marginBottom: 16 }}>Items Purchased</StyledText>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {parsedItems.map((item: any, index: number) => (
+              <View key={index} style={[styles.itemRow, index !== parsedItems.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
+                <View style={{ flex: 1 }}>
+                  <StyledText variant="body" style={{ fontWeight: '600' }}>{item.name}</StyledText>
+                  <StyledText variant="subtext">Qty: {item.quantity}</StyledText>
+                </View>
                 <StyledText variant="body" style={{ fontWeight: '600' }}>${(item.price * item.quantity).toFixed(2)}</StyledText>
               </View>
+            ))}
+            
+            <View style={[styles.totalRow, { backgroundColor: theme.background }]}>
+              <StyledText variant="body" style={{ fontWeight: '700' }}>Total Paid</StyledText>
+              <StyledText variant="h3" style={{ color: theme.primary }}>${Number(order.totalAmount).toFixed(2)}</StyledText>
             </View>
           </View>
-        ))}
+        </View>
+
+        {/* UPDATE ACTIONS */}
+        <View style={[styles.section, { marginBottom: 40 }]}>
+          <StyledText variant="h3" style={{ marginBottom: 16 }}>Update Status</StyledText>
+          
+          <View style={{ gap: 12 }}>
+            {order.status !== 'shipped' && (
+              <PremiumButton 
+                title="Mark as Shipped" 
+                onPress={() => handleUpdateStatus('shipped')} 
+                isLoading={isUpdating && order.status === 'shipped'} 
+              />
+            )}
+            {order.status !== 'delivered' && (
+              <PremiumButton 
+                title="Mark as Delivered" 
+                onPress={() => handleUpdateStatus('delivered')} 
+                isLoading={isUpdating && order.status === 'delivered'} 
+              />
+            )}
+            
+            <TouchableOpacity 
+              style={[styles.dangerButton, { borderColor: theme.danger }]}
+              onPress={() => handleUpdateStatus('cancelled')}
+              disabled={isUpdating}
+            >
+              <StyledText variant="body" style={{ color: theme.danger, fontWeight: '600' }}>Cancel Order</StyledText>
+            </TouchableOpacity>
+          </View>
+        </View>
+
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  headerBlur: { position: 'absolute', top: 0, left: 0, right: 0, width: '100%', zIndex: 999, elevation: 20, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerContent: { paddingTop: Platform.OS === 'ios' ? 44 : 20, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  iconButton: { width: 80, alignItems: 'flex-start', justifyContent: 'center' },
-  scrollContent: { paddingTop: Platform.OS === 'ios' ? 120 : 100, paddingBottom: 120, paddingHorizontal: 16, maxWidth: 800, width: '100%', alignSelf: 'center' },
-  infoCard: { borderRadius: 16, borderWidth: 1, padding: 24, marginBottom: 16 },
-  infoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  divider: { height: 1, width: '100%', marginVertical: 16 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { marginBottom: 16 },
-  itemCard: { flexDirection: 'row', padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12 },
-  imageContainer: { width: 80, height: 80, borderRadius: 12, backgroundColor: '#E5E5EA', overflow: 'hidden' },
-  image: { width: '100%', height: '100%', resizeMode: 'cover' },
-  itemDetails: { flex: 1, marginLeft: 16, justifyContent: 'space-between' },
-  itemPriceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 60 : 20, paddingBottom: 16, borderWidth: 1 },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
+  content: { padding: 24, maxWidth: 600, width: '100%', alignSelf: 'center' },
+  statusBox: { padding: 24, borderRadius: 16, borderWidth: 1, alignItems: 'center', marginBottom: 32 },
+  section: { marginBottom: 32 },
+  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  infoRow: { flexDirection: 'row', padding: 20 },
+  infoTextContainer: { marginLeft: 16, flex: 1 },
+  divider: { height: 1, width: '100%' },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderTopWidth: 1, borderTopColor: '#00000010' },
+  dangerButton: { padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center', marginTop: 12 }
 });
