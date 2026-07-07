@@ -4,7 +4,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
   Platform,
   useColorScheme,
   useWindowDimensions,
@@ -16,11 +15,13 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useRouter, useFocusEffect } from 'expo-router'; 
 
+// 🚀 THE FIX: Import the high-performance Image component!
+import { Image } from 'expo-image';
+
 import { lightTheme, darkTheme } from '../src/theme/theme';
 import StyledText from '../src/components/StyledText';
 import { useCart } from '../src/context/CartContext';
 import { AuthContext } from '../src/context/AuthContext'; 
-// 🚀 THE FIX: Swapped apiClient for supabase!
 import { supabase } from '../src/utils/supabase';
 
 const CATEGORIES = ['All', 'Audio', 'Peripherals', 'Displays', 'Gaming', 'Photography', 'Accessories'];
@@ -55,7 +56,6 @@ export default function HomeScreen() {
 
   const cartItemCount = cart ? cart.reduce((total: any, item: any) => total + item.quantity, 0) : 0;
 
-  // 🚀 THE FIX: Fetch directly from Supabase instead of a backend server
   const fetchProducts = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('products').select('*');
@@ -69,7 +69,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // 🚀 THE FIX: Count orders directly from Supabase
   const fetchOrderCount = useCallback(async () => {
     if (isAdmin) {
       try {
@@ -157,8 +156,14 @@ export default function HomeScreen() {
       onPress={() => handleProductPress(item)}
     >
       <View style={styles.imageContainer}>
+        {/* 🚀 THE FIX: Upgraded to expo-image with transition */}
         {item.imageUrl ? (
-           <Image source={{ uri: item.imageUrl }} style={styles.image} />
+           <Image 
+             source={{ uri: item.imageUrl }} 
+             style={styles.image} 
+             contentFit="cover" 
+             transition={300} 
+           />
         ) : (
            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
              <Ionicons name="hardware-chip-outline" size={48} color={theme.subtext} />
@@ -204,7 +209,12 @@ export default function HomeScreen() {
       <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={[styles.headerBlur, { borderBottomColor: theme.border }]}>
         <View style={[styles.headerContent, { paddingHorizontal: isDesktop ? 48 : 16 }]}>
           <TouchableOpacity onPress={() => router.replace('/')} activeOpacity={0.8}>
-            <Image source={require('../assets/tech-logo.png')} style={[styles.headerLogo, { tintColor: theme.text }]} resizeMode="contain" />
+            {/* 🚀 THE FIX: Upgraded Logo image too! */}
+            <Image 
+              source={require('../assets/tech-logo.png')} 
+              style={[styles.headerLogo, { tintColor: theme.text }]} 
+              contentFit="contain" 
+            />
           </TouchableOpacity>
 
           <View style={styles.actionIcons}>
@@ -295,6 +305,6 @@ const styles = StyleSheet.create({
   listContent: { paddingTop: Platform.OS === 'ios' ? 110 : 90, paddingBottom: 120, paddingHorizontal: CARD_MARGIN },
   card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   imageContainer: { width: '100%', height: 240, backgroundColor: '#E5E5EA' },
-  image: { width: '100%', height: '100%', resizeMode: 'cover' },
+  image: { width: '100%', height: '100%' },
   cardContent: { padding: 12 },
 });

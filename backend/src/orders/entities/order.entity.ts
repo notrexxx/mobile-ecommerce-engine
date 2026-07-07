@@ -38,7 +38,6 @@ export class Order {
   @Column('simple-json')
   items!: OrderItem[];
 
-  // 🚀 THE FIX: Added '?' to tell TypeScript these fields are officially optional!
   @Column({ type: 'varchar', nullable: true })
   customerEmail?: string;
 

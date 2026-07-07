@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   text: {
-    fontFamily: 'Inter_700Bold', // <-- THE FIX: Explicitly forcing the loaded font
+    fontFamily: 'Inter_700Bold',
     fontSize: 17,
     letterSpacing: 0.5,
   },

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  Image,
   TouchableOpacity,
   ScrollView,
   Platform,
@@ -15,12 +14,13 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router'; 
 
+// 🚀 THE FIX: Import expo-image!
+import { Image } from 'expo-image';
+
 import { lightTheme, darkTheme } from '../../src/theme/theme';
 import StyledText from '../../src/components/StyledText';
 import PremiumButton from '../../src/components/PremiumButton';
 import { useCart } from '../../src/context/CartContext';
-
-// 🚀 THE FIX: Swapped apiClient for Supabase!
 import { supabase } from '../../src/utils/supabase';
 
 export default function ProductDetailsScreen() {
@@ -38,7 +38,6 @@ export default function ProductDetailsScreen() {
   const { width, height } = useWindowDimensions();
   const isDesktop = width >= 768;
 
-  // 🚀 THE FIX: Fetch directly from Supabase instead of the backend
   useEffect(() => {
     const fetchProductDetails = async () => {
       try {
@@ -128,8 +127,14 @@ export default function ProductDetailsScreen() {
         </TouchableOpacity>
 
         <View style={[styles.imageSection, { height: isDesktop ? 400 : width, backgroundColor: isDark ? '#1C1C1E' : '#F5F5F7' }]} >
+          {/* 🚀 THE FIX: Implemented caching and smooth fade transition */}
           {product.imageUrl ? (
-             <Image source={{ uri: product.imageUrl }} style={styles.image} resizeMode="contain" />
+             <Image 
+               source={{ uri: product.imageUrl }} 
+               style={styles.image} 
+               contentFit="contain"
+               transition={300} 
+             />
           ) : (
              <Ionicons name="hardware-chip-outline" size={80} color={theme.subtext} />
           )}

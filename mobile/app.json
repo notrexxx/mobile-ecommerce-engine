@@ -38,7 +38,8 @@
           "merchantIdentifier": "merchant.com.techstore",
           "enableApplePay": true
         }
-      ]
+      ],
+      "expo-image"
     ]
   }
 }
