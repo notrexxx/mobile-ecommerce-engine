@@ -73,23 +73,13 @@ export default function AdminDashboard() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       
-      {/* HEADER & QUICK ACTIONS */}
+      {/* HEADER */}
       <View style={styles.headerContainer}>
         <View>
           <StyledText variant="h1">Command Center</StyledText>
           <StyledText variant="body" style={{ color: theme.subtext, marginTop: 8 }}>Store metrics and inventory control hub</StyledText>
         </View>
-
-        {/* 🚀 FIXED: New Product Button with proper icon */}
-        <TouchableOpacity 
-          style={[styles.quickActionButton, { backgroundColor: theme.primary }]}
-          onPress={() => router.push('/(admin)/product-form')}
-        >
-          <Ionicons name="cube" size={20} color={theme.background} />
-          <StyledText variant="body" style={{ color: theme.background, fontWeight: '700', marginLeft: 8 }}>
-            New Product
-          </StyledText>
-        </TouchableOpacity>
+        {/* 🚀 FIXED: Removed the top right button you asked to erase */}
       </View>
 
       {/* CORE METRIC BLOCK */}
@@ -121,9 +111,10 @@ export default function AdminDashboard() {
               return (
                 <View key={index} style={styles.chartColumn}>
                   <View style={styles.barValueWrapper}>
-                    {item.value > 0 && (
+                    {/* 🚀 FIXED: The Text Node Crash is solved using ? : null */}
+                    {item.value > 0 ? (
                       <StyledText variant="caption" style={styles.barValueText}>${Math.round(item.value)}</StyledText>
-                    )}
+                    ) : null}
                   </View>
                   <View style={[styles.chartBar, { height: barHeightPercentage as any, backgroundColor: theme.primary }]} />
                   <StyledText variant="caption" style={[styles.chartLabel, { color: theme.subtext }]} numberOfLines={1}>{item.label}</StyledText>
@@ -138,9 +129,10 @@ export default function AdminDashboard() {
       <View style={styles.section}>
         <View style={styles.rowBetween}>
           <StyledText variant="h3" style={styles.sectionTitle}>Inventory Watchlist</StyledText>
-          {lowStockProducts.length > 0 && (
+          {/* 🚀 FIXED: The Text Node Crash is solved using ? : null */}
+          {lowStockProducts.length > 0 ? (
             <StyledText variant="caption" style={{ color: '#FF3B30', fontWeight: '700' }}>Critical</StyledText>
-          )}
+          ) : null}
         </View>
 
         {lowStockProducts.length === 0 ? (
@@ -181,7 +173,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 24, paddingTop: 60, paddingBottom: 100, maxWidth: 848, width: '100%', alignSelf: 'center' },
   headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 32 },
-  quickActionButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 100, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8 },
   metricsRow: { flexDirection: 'row', gap: 16, marginBottom: 32 },
   metricCard: { flex: 1, padding: 20, borderRadius: 20, borderWidth: 1 },
   iconBox: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },

@@ -1,44 +1,46 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Platform, useColorScheme, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import Toast from 'react-native-toast-message';
+import { View, StyleSheet, ScrollView, useColorScheme, Platform, TouchableOpacity, KeyboardAvoidingView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
+import * as Haptics from 'expo-haptics';
 
-import { supabase } from '../../src/utils/supabase';
 import { lightTheme, darkTheme } from '../../src/theme/theme';
 import StyledText from '../../src/components/StyledText';
+import PremiumInput from '../../src/components/PremiumInput';
+import PremiumButton from '../../src/components/PremiumButton';
+import { supabase } from '../../src/utils/supabase';
 
 export default function AdminProductFormScreen() {
   const router = useRouter();
   
+  // Your logic to check if we are editing an existing product
   const { productStr } = useLocalSearchParams();
   const editingProduct = productStr ? JSON.parse(productStr as string) : null;
-
-  const [name, setName] = useState(editingProduct?.name || '');
-  const [description, setDescription] = useState(editingProduct?.description || '');
-  const [price, setPrice] = useState(editingProduct?.price?.toString() || '');
-  // Safely read from either casing when opening the form
-  const [imageUrl, setImageUrl] = useState(editingProduct?.imageUrl || editingProduct?.image_url || '');
-  const [category, setCategory] = useState(editingProduct?.category || '');
-  const [stock, setStock] = useState(editingProduct?.stock?.toString() || '10');
-  
-  const [isSaving, setIsSaving] = useState(false);
 
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
 
-  const handleSave = async () => {
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Your existing state fields
+  const [name, setName] = useState(editingProduct?.name || '');
+  const [category, setCategory] = useState(editingProduct?.category || '');
+  const [price, setPrice] = useState(editingProduct?.price?.toString() || '');
+  const [stock, setStock] = useState(editingProduct?.stock?.toString() || '10');
+  const [description, setDescription] = useState(editingProduct?.description || '');
+  const [imageUrl, setImageUrl] = useState(editingProduct?.imageUrl || editingProduct?.image_url || '');
+
+  const handleSaveProduct = async () => {
+    // 1. Validation
     if (!name || !price || !imageUrl || !category || !stock) {
-      Toast.show({ type: 'error', text1: 'Missing Fields', text2: 'Please fill out all required fields.' });
-      return;
+      return Toast.show({ type: 'error', text1: 'Missing Fields', text2: 'Please fill out all required fields.' });
     }
 
     if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsSaving(true);
+    setIsLoading(true);
 
-    // THE FIX: Changed 'image_url' to 'imageUrl' to perfectly match your database schema!
+    // 2. Format Data exactly how your database expects it
     const productData = {
       name,
       description,
@@ -49,6 +51,7 @@ export default function AdminProductFormScreen() {
     };
 
     try {
+      // 3. Your dynamic Create OR Update logic
       if (editingProduct) {
         const { error } = await supabase.from('products').update(productData).eq('id', editingProduct.id);
         if (error) throw error;
@@ -58,61 +61,83 @@ export default function AdminProductFormScreen() {
         if (error) throw error;
         Toast.show({ type: 'success', text1: 'Product Created' });
       }
+      
       router.back();
     } catch (error: any) {
       console.error("SUPABASE SAVE ERROR: ", error);
       Toast.show({ type: 'error', text1: 'Save Failed', text2: error.message });
     } finally {
-      setIsSaving(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={[styles.headerBlur, { borderBottomColor: theme.border }]}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <Ionicons name="close" size={28} color={theme.text} />
-          </TouchableOpacity>
-          <StyledText variant="h3">{editingProduct ? 'Edit Product' : 'New Product'}</StyledText>
-          <View style={styles.iconButton} />
-        </View>
-      </BlurView>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8 }}>Product Name</StyledText>
-        <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={name} onChangeText={setName} placeholder="e.g., RTX 4090" placeholderTextColor={theme.subtext} />
-
-        <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8 }}>Price ($)</StyledText>
-        <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={price} onChangeText={setPrice} keyboardType="numeric" placeholder="1599.99" placeholderTextColor={theme.subtext} />
-
-        <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8 }}>Initial Stock</StyledText>
-        <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={stock} onChangeText={setStock} keyboardType="numeric" placeholder="10" placeholderTextColor={theme.subtext} />
-
-        <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8 }}>Category</StyledText>
-        <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={category} onChangeText={setCategory} placeholder="GPU, CPU, Case..." placeholderTextColor={theme.subtext} />
-
-        <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8 }}>Image URL</StyledText>
-        <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={imageUrl} onChangeText={setImageUrl} placeholder="https://..." autoCapitalize="none" placeholderTextColor={theme.subtext} />
-
-        <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8 }}>Description</StyledText>
-        <TextInput style={[styles.textArea, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={description} onChangeText={setDescription} multiline numberOfLines={4} placeholder="Product details..." placeholderTextColor={theme.subtext} />
-
-        <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.primary }]} onPress={handleSave} disabled={isSaving}>
-          {isSaving ? <ActivityIndicator color={theme.background} /> : <StyledText variant="body" style={{ color: theme.background, fontWeight: '700' }}>{editingProduct ? 'Update Product' : 'Save New Product'}</StyledText>}
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.background }}>
+      
+      {/* HEADER */}
+      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
+        <StyledText variant="h2">{editingProduct ? 'Edit Product' : 'Add New Product'}</StyledText>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        
+        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <StyledText variant="h3" style={{ marginBottom: 20 }}>Core Details</StyledText>
+          
+          <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8, marginLeft: 4 }}>Product Name *</StyledText>
+          <PremiumInput placeholder="e.g. Wireless Pro Headphones" value={name} onChangeText={setName} />
+
+          <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8, marginLeft: 4 }}>Category *</StyledText>
+          <PremiumInput placeholder="e.g. Audio, Displays, Gaming" value={category} onChangeText={setCategory} />
+
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8, marginLeft: 4 }}>Price ($) *</StyledText>
+              <PremiumInput placeholder="0.00" keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8, marginLeft: 4 }}>Initial Stock *</StyledText>
+              <PremiumInput placeholder="10" keyboardType="number-pad" value={stock} onChangeText={setStock} />
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <StyledText variant="h3" style={{ marginBottom: 20 }}>Media & Description</StyledText>
+          
+          <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8, marginLeft: 4 }}>Image URL *</StyledText>
+          <PremiumInput placeholder="https://example.com/image.png" value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" />
+
+          <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8, marginLeft: 4 }}>Description</StyledText>
+          <PremiumInput 
+            placeholder="Write a compelling description..." 
+            value={description} 
+            onChangeText={setDescription} 
+            multiline 
+          />
+        </View>
+
+        <View style={{ paddingVertical: 24 }}>
+          <PremiumButton 
+            title={editingProduct ? "Update Product" : "Publish Product"} 
+            onPress={handleSaveProduct} 
+            isLoading={isLoading} 
+          />
+        </View>
+
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  headerBlur: { position: 'absolute', top: 0, left: 0, right: 0, width: '100%', zIndex: 999, elevation: 20, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerContent: { paddingTop: Platform.OS === 'ios' ? 44 : 20, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16 },
-  iconButton: { width: 40, alignItems: 'center' },
-  scrollContent: { paddingTop: Platform.OS === 'ios' ? 110 : 90, paddingBottom: 120, paddingHorizontal: 16, maxWidth: 600, width: '100%', alignSelf: 'center' },
-  input: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 20, fontFamily: 'Inter_400Regular' },
-  textArea: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 24, height: 120, textAlignVertical: 'top', fontFamily: 'Inter_400Regular' },
-  saveButton: { padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 60 : 20, paddingBottom: 16, borderWidth: 1 },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
+  content: { padding: 24, maxWidth: 600, width: '100%', alignSelf: 'center' },
+  card: { padding: 24, borderRadius: 20, borderWidth: 1, marginBottom: 24 },
+  row: { flexDirection: 'row', justifyContent: 'space-between' }
 });

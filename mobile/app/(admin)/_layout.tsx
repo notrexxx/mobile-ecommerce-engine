@@ -11,7 +11,6 @@ export default function AdminLayout() {
   const theme = isDark ? darkTheme : lightTheme;
   const { user } = useAuth();
 
-  // 🚀 Security: Kick out non-admins
   if (!user || user.role !== 'admin') {
     return <Redirect href="/" />;
   }
@@ -52,12 +51,18 @@ export default function AdminLayout() {
         }}
       />
       
-      {/* 🚀 THE FIX: Hide internal screens from the bottom tab bar */}
+      {/* 🚀 THE FIX: We added your product-form to the Navbar with a sleek icon! */}
+      <Tabs.Screen
+        name="product-form"
+        options={{
+          title: 'New Product',
+          tabBarIcon: ({ color, size }) => <Ionicons name="add-circle" size={size} color={color} />,
+        }}
+      />
+
+      {/* Hidden Screens */}
       <Tabs.Screen name="[id]" options={{ href: null }} />
       <Tabs.Screen name="order-details" options={{ href: null }} />
-      
-      {/* This hides your specific form file from creating an ugly tab */}
-      <Tabs.Screen name="product-form" options={{ href: null }} />
     </Tabs>
   );
 }
