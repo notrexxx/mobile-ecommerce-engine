@@ -220,32 +220,13 @@ export default function HomeScreen() {
           <View style={styles.actionIcons}>
             
             {isAdmin && (
-              <>
-                <TouchableOpacity
-                  onPress={() => handleAdminNav('/(admin)/products')}
-                  style={styles.authButtonWrapper}
-                >
-                  <Ionicons name="cube-outline" size={24} color={theme.text} />
-                  <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Products</StyledText>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => handleAdminNav('/(admin)/orders')}
-                  style={styles.authButtonWrapper}
-                >
-                  <View style={{ position: 'relative' }}>
-                    <Ionicons name="shield-checkmark-outline" size={24} color={theme.text} />
-                    {orderCount > 0 && (
-                      <View style={[styles.badge, { backgroundColor: '#FF9500', top: -4, right: -4 }]}>
-                        <StyledText variant="caption" style={[styles.badgeText, { color: '#FFFFFF' }]}>
-                          {orderCount > 99 ? '99+' : orderCount}
-                        </StyledText>
-                      </View>
-                    )}
-                  </View>
-                  <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Orders</StyledText>
-                </TouchableOpacity>
-              </>
+              <TouchableOpacity
+                onPress={() => handleAdminNav('/(admin)')}
+                style={styles.authButtonWrapper}
+              >
+                <Ionicons name="pie-chart-outline" size={24} color={theme.text} />
+                <StyledText variant="body" style={[styles.authButtonText, { color: theme.text }]}>Admin CMS</StyledText>
+              </TouchableOpacity>
             )}
 
             <TouchableOpacity onPress={() => router.push('/cart')} style={styles.authButtonWrapper}>
