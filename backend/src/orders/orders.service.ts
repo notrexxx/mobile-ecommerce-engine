@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { Order, OrderStatus, OrderItem } from './entities/order.entity';
 import { Product } from '../products/product.entity';
 import { User } from '../users/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class OrdersService {
@@ -11,6 +12,9 @@ export class OrdersService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly dataSource: DataSource, 
+    
+
+    private readonly notificationsService: NotificationsService, 
   ) {}
 
   async create(user: User, itemsDto: { productId: string; quantity: number }[]): Promise<Order> {
@@ -79,5 +83,37 @@ export class OrdersService {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
     return order;
+  }
+
+
+  async updateStatus(id: string, newStatus: OrderStatus): Promise<Order> {
+    // 1. Find the order (because of { eager: true }, the User and their Push Token are already attached!)
+    const order = await this.findOne(id);
+    const previousStatus = order.status;
+
+    // 2. Update and save
+    order.status = newStatus;
+    const updatedOrder = await this.orderRepository.save(order);
+
+    // 3. Trigger the Notification if marked as SHIPPED
+    if (newStatus === OrderStatus.SHIPPED && previousStatus !== OrderStatus.SHIPPED) {
+      const customer = updatedOrder.user; 
+
+      if (customer && customer.pushToken) {
+        try {
+          await this.notificationsService.sendNotification(
+            customer.pushToken,
+            'Order Shipped! 📦',
+            `Good news! Your Tech Store order #${order.id.slice(0, 8).toUpperCase()} is on the way.`,
+            { orderId: order.id, route: 'OrderDetails' } // Data payload the frontend can read
+          );
+          console.log(`[CMS Notification] Push alert dispatched to user ${customer.id}`);
+        } catch (error) {
+          console.error('[CMS Notification] Push delivery failed:', error);
+        }
+      }
+    }
+
+    return updatedOrder;
   }
 }

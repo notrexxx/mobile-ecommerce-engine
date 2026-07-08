@@ -23,6 +23,10 @@ export class User {
   })
   role: UserRole = UserRole.CUSTOMER;
 
+  // 🚀 NEW: Store the Expo Push Token (nullable because they might deny permission)
+  @Column({ type: 'varchar', nullable: true })
+  pushToken?: string;
+
   @CreateDateColumn()
   createdAt!: Date;
 

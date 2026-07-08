@@ -12,6 +12,7 @@ import { User } from './users/user.entity';
 import { Product } from './products/product.entity';
 import { Order } from './orders/entities/order.entity';
 import { StripeModule } from './stripe/stripe.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { StripeModule } from './stripe/stripe.module';
     OrdersModule,
     AuthModule,
     StripeModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

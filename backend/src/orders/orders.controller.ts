@@ -1,7 +1,8 @@
-import { Controller, Post, Body, Get, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, UseGuards, Request } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { User } from '../users/user.entity';
+import { OrderStatus } from './entities/order.entity';
 
 @Controller('orders')
 // Apply the Guard to the entire controller. Every endpoint now requires a valid JWT.
@@ -28,5 +29,14 @@ export class OrdersController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
+  }
+
+  
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: OrderStatus
+  ) {
+    return this.ordersService.updateStatus(id, status);
   }
 }
