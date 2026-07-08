@@ -7,8 +7,9 @@ import {
   useColorScheme,
   ActivityIndicator
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+
 import { lightTheme, darkTheme } from '../theme/theme';
+import { triggerHaptic } from '../utils/haptics'; // 🚀 Bringing in the safe Haptic Engine
 
 interface PremiumButtonProps {
   title: string;
@@ -46,8 +47,9 @@ export default function PremiumButton({
     }).start();
   };
 
-  const handlePress = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const handlePress = () => {
+    // 🚀 THE FIX: Fire a medium haptic thud cleanly, without crashing the web!
+    triggerHaptic.medium();
     onPress();
   };
 
