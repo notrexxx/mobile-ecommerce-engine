@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme, ScrollView, ActivityIndicator, useWindowDimensions, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, useColorScheme, ScrollView, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
+import { BarChart, PieChart } from 'react-native-gifted-charts';
 
 import { lightTheme, darkTheme } from '../../src/theme/theme';
 import StyledText from '../../src/components/StyledText';
@@ -16,30 +17,89 @@ export default function AdminDashboard() {
   const { logout } = useAuth();
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
-  const { width } = useWindowDimensions();
 
   const [isLoading, setIsLoading] = useState(true);
   const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
+  
+  // Analytics State
   const [totalRevenue, setTotalRevenue] = useState(0);
-  const [salesHistory, setSalesHistory] = useState<{ label: string; value: number }[]>([]);
+  const [salesData, setSalesData] = useState<any[]>([]);
+  const [statusData, setStatusData] = useState<any[]>([]);
 
   const fetchDashboardData = async () => {
     try {
       const { data: stockData } = await supabase.from('products').select('*').lt('stock', 10).order('stock', { ascending: true });
       if (stockData) setLowStockProducts(stockData);
 
-      const { data: orderData } = await supabase.from('orders').select('totalAmount, createdAt').order('createdAt', { ascending: false }).limit(50);
+      const { data: orderData } = await supabase.from('orders').select('totalAmount, createdAt, status').order('createdAt', { ascending: false }).limit(100);
+      
       if (orderData) {
         setTotalRevenue(orderData.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0));
-        const analyticalData = orderData.slice(0, 6).map((order) => {
-          const dateObj = new Date(order.createdAt);
-          return { label: dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), value: Number(order.totalAmount || 0) };
+        
+        // --- CHART 1: THE REVENUE & VOLUME OVERHAUL ---
+        const last7Days = Array.from({length: 7}, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          return d;
         }).reverse();
 
-        while (analyticalData.length < 6) {
-          analyticalData.unshift({ label: '-', value: 0 });
-        }
-        setSalesHistory(analyticalData);
+        // 🚀 Tracking BOTH revenue and count!
+        const dailyStats: Record<string, { rev: number, count: number, dateObj: Date }> = {};
+        const getLocalDateString = (d: Date) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+        
+        last7Days.forEach(d => {
+          dailyStats[getLocalDateString(d)] = { rev: 0, count: 0, dateObj: d };
+        });
+
+        orderData.forEach(order => {
+          const orderDate = new Date(order.createdAt);
+          const localDateStr = getLocalDateString(orderDate);
+          
+          if (dailyStats[localDateStr]) {
+            dailyStats[localDateStr].rev += Number(order.totalAmount || 0);
+            dailyStats[localDateStr].count += 1; // 🚀 Tallying the sales count
+          }
+        });
+
+        const barData = last7Days.map(d => {
+          const stat = dailyStats[getLocalDateString(d)];
+          return { 
+            value: stat.rev, 
+            label: d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' }),
+            frontColor: theme.primary,
+            
+            // 🚀 THE OVERHAUL: A beautiful, double-stacked label showing BOTH metrics!
+            topLabelComponent: () => (
+              <View style={{ width: 60, alignItems: 'center', marginBottom: 4 }}>
+                {stat.rev > 0 || stat.count > 0 ? (
+                  <>
+                    <StyledText variant="caption" style={{ color: theme.text, fontSize: 10, fontWeight: '800' }}>
+                      ${Math.round(stat.rev)}
+                    </StyledText>
+                    <StyledText variant="caption" style={{ color: theme.subtext, fontSize: 9, fontWeight: '600', marginTop: 2 }}>
+                      {stat.count} {stat.count === 1 ? 'sale' : 'sales'}
+                    </StyledText>
+                  </>
+                ) : null}
+              </View>
+            )
+          };
+        });
+        setSalesData(barData);
+
+        // --- CHART 2: FULFILLMENT STATUS ---
+        let pending = 0, shipped = 0, delivered = 0;
+        orderData.forEach(order => {
+          if (order.status === 'pending') pending++;
+          if (order.status === 'shipped') shipped++;
+          if (order.status === 'delivered') delivered++;
+        });
+
+        setStatusData([
+          { value: pending > 0 ? pending : 1, color: '#FF9500', text: 'Pending', realValue: pending },
+          { value: shipped > 0 ? shipped : 1, color: '#007AFF', text: 'Shipped', realValue: shipped },
+          { value: delivered > 0 ? delivered : 1, color: '#34C759', text: 'Delivered', realValue: delivered }
+        ]);
       }
     } catch (error) {
       console.error("Dashboard error:", error);
@@ -50,24 +110,22 @@ export default function AdminDashboard() {
 
   useFocusEffect(useCallback(() => { fetchDashboardData(); }, []));
 
-  // 🚀 THE FIX: Removed router command to prevent infinite loop. Layout handles it!
   const handleLogout = async () => {
     if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await logout();
-      Toast.show({ type: 'success', text1: 'Logged Out', text2: 'Securely signed out of the CMS.' });
+      Toast.show({ type: 'success', text1: 'Logged Out', text2: 'Securely signed out.' });
     } catch (error: any) {
       Toast.show({ type: 'error', text1: 'Logout Failed', text2: error.message });
     }
   };
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={theme.primary} /></View>
-    );
+    return <View style={[styles.center, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={theme.primary} /></View>;
   }
 
-  const maxSaleValue = Math.max(...salesHistory.map(item => item.value), 1);
+  // 🚀 Gave it 50% headroom so the double-stacked label NEVER gets cut off
+  const maxRevenue = Math.max(...salesData.map(d => d.value), 100);
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -80,7 +138,6 @@ export default function AdminDashboard() {
         </View>
 
         <View style={styles.headerIcons}>
-          {/* 🚀 THE FIX: Use replace to cleanly escape the nested tabs */}
           <TouchableOpacity onPress={() => router.replace('/')} style={[styles.pillBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}>
             <Ionicons name="storefront-outline" size={18} color={theme.text} />
             <StyledText variant="body" style={[styles.pillText, { color: theme.text }]}>Store</StyledText>
@@ -92,6 +149,7 @@ export default function AdminDashboard() {
         </View>
       </View>
 
+      {/* METRICS ROW */}
       <View style={styles.metricsRow}>
         <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={[styles.iconBox, { backgroundColor: '#34C75920' }]}><Ionicons name="cash-outline" size={24} color="#34C759" /></View>
@@ -105,26 +163,74 @@ export default function AdminDashboard() {
         </View>
       </View>
 
+      {/* 🚀 CHART 1: THE OVERHAULED REVENUE & VOLUME CHART */}
       <View style={styles.section}>
-        <StyledText variant="h3" style={styles.sectionTitle}>Recent Volume Performance</StyledText>
-        <View style={[styles.chartContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.chartBarArea}>
-            {salesHistory.map((item, index) => {
-              const barHeightPercentage = `${Math.max((item.value / maxSaleValue) * 100, 6)}%`;
-              return (
-                <View key={index} style={styles.chartColumn}>
-                  <View style={styles.barValueWrapper}>
-                    {item.value > 0 ? <StyledText variant="caption" style={styles.barValueText}>${Math.round(item.value)}</StyledText> : null}
-                  </View>
-                  <View style={[styles.chartBar, { height: barHeightPercentage as any, backgroundColor: theme.primary }]} />
-                  <StyledText variant="caption" style={[styles.chartLabel, { color: theme.subtext }]} numberOfLines={1}>{item.label}</StyledText>
-                </View>
-              );
-            })}
+        <StyledText variant="h3" style={styles.sectionTitle}>Daily Sales & Revenue</StyledText>
+        <View style={[styles.chartWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          
+          {/* 🚀 THE OVERHAULED LEGEND */}
+          <View style={styles.barLegendContainer}>
+            <View style={styles.legendRow}>
+              <View style={[styles.legendDot, { backgroundColor: theme.primary }]} />
+              <StyledText variant="caption" style={{ color: theme.subtext, fontWeight: '600' }}>Bar Height = Gross Revenue (USD)</StyledText>
+            </View>
+            <View style={styles.legendRow}>
+              <Ionicons name="pricetag-outline" size={14} color={theme.subtext} />
+              <StyledText variant="caption" style={{ color: theme.subtext, fontWeight: '600' }}>Top Label = Volume (Number of Sales)</StyledText>
+            </View>
+          </View>
+
+          <BarChart
+            data={salesData}
+            barWidth={28}
+            spacing={24}
+            roundedTop
+            xAxisThickness={0}
+            yAxisThickness={0}
+            yAxisTextStyle={{ color: theme.subtext, fontSize: 11 }}
+            xAxisLabelTextStyle={{ color: theme.subtext, fontSize: 11 }}
+            noOfSections={4}
+            maxValue={maxRevenue + (maxRevenue * 0.5)} 
+            isAnimated
+            animationDuration={800}
+            rulesColor={theme.border}
+            yAxisLabelPrefix="$"
+          />
+        </View>
+      </View>
+
+      {/* CHART 2: FULFILLMENT STATUS DONUT */}
+      <View style={styles.section}>
+        <StyledText variant="h3" style={styles.sectionTitle}>Operational Fulfillment</StyledText>
+        <View style={[styles.donutWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <PieChart
+            donut
+            innerRadius={65}
+            radius={90}
+            data={statusData}
+            isAnimated
+            centerLabelComponent={() => (
+              <View style={{justifyContent: 'center', alignItems: 'center'}}>
+                <StyledText variant="h2">{statusData.reduce((a, b) => a + b.realValue, 0)}</StyledText>
+                <StyledText variant="caption" style={{color: theme.subtext}}>Total Orders</StyledText>
+              </View>
+            )}
+          />
+          {/* Legend */}
+          <View style={styles.legendContainer}>
+            {statusData.map((item, index) => (
+              <View key={index} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                <StyledText variant="body" style={{ color: theme.text }}>
+                  {item.text}: <StyledText variant="body" style={{ fontWeight: '700' }}>{item.realValue}</StyledText>
+                </StyledText>
+              </View>
+            ))}
           </View>
         </View>
       </View>
 
+      {/* INVENTORY WATCHLIST */}
       <View style={styles.section}>
         <View style={styles.rowBetween}>
           <StyledText variant="h3" style={styles.sectionTitle}>Inventory Watchlist</StyledText>
@@ -138,7 +244,11 @@ export default function AdminDashboard() {
           </View>
         ) : (
           lowStockProducts.map((product) => (
-            <TouchableOpacity key={product.id} style={[styles.alertCard, { backgroundColor: theme.surface, borderColor: '#FF3B3030' }]} onPress={() => router.push('/(admin)/products')}>
+            <TouchableOpacity 
+              key={product.id} 
+              style={[styles.alertCard, { backgroundColor: theme.surface, borderColor: '#FF3B3030' }]} 
+              onPress={() => router.push(`/(admin)/product-form?id=${product.id}` as any)}
+            >
               <View style={styles.alertImageContainer}>
                 {product.imageUrl ? <Image source={{ uri: product.imageUrl }} style={styles.alertImage} contentFit="cover" /> : <Ionicons name="cube-outline" size={24} color={theme.subtext} />}
               </View>
@@ -146,7 +256,7 @@ export default function AdminDashboard() {
                 <StyledText variant="body" style={{ fontWeight: '600' }} numberOfLines={1}>{product.name}</StyledText>
                 <StyledText variant="caption" style={{ color: '#FF3B30', marginTop: 4 }}>Only {product.stock} units remaining</StyledText>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
+              <Ionicons name="create-outline" size={20} color={theme.primary} />
             </TouchableOpacity>
           ))
         )}
@@ -174,11 +284,11 @@ const styles = StyleSheet.create({
   alertImageContainer: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#E5E5EA', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginRight: 16 },
   alertImage: { width: '100%', height: '100%' },
   alertInfo: { flex: 1, paddingRight: 16 },
-  chartContainer: { padding: 20, borderRadius: 24, borderWidth: 1, width: '100%' },
-  chartBarArea: { flexDirection: 'row', height: 240, justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: 24 },
-  chartColumn: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
-  chartBar: { width: '60%', maxWidth: 36, borderRadius: 6, minHeight: 4 },
-  chartLabel: { fontSize: 11, marginTop: 8, textAlign: 'center', width: '100%' },
-  barValueWrapper: { height: 20, justifyContent: 'center', marginBottom: 4 },
-  barValueText: { fontSize: 10, fontWeight: '700', textAlign: 'center' }
+  chartWrapper: { padding: 20, borderRadius: 24, borderWidth: 1, width: '100%', paddingTop: 20, overflow: 'hidden' },
+  donutWrapper: { padding: 24, borderRadius: 24, borderWidth: 1, width: '100%', alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: 24 },
+  legendContainer: { justifyContent: 'center', gap: 12 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  legendDot: { width: 12, height: 12, borderRadius: 6 },
+  barLegendContainer: { marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#33333330', gap: 8 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });
