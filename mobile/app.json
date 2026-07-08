@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Tech Store",
-    "slug": "mobile-ecommerce-engine",
+    "slug": "tech-store",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,37 +9,31 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A0A0A"
+      "backgroundColor": "#1A1A1A"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "userInterfaceStyle": "automatic"
+      "bundleIdentifier": "com.techstore.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0A0A0A"
+        "backgroundColor": "#1A1A1A"
       },
-      "userInterfaceStyle": "automatic"
+      "package": "com.techstore.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router",
-      "expo-status-bar",
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.techstore",
-          "enableApplePay": true
-        }
-      ],
-      "expo-image"
-    ]
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }
