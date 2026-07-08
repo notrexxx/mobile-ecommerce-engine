@@ -74,7 +74,8 @@ export default function OrderDetailsScreen() {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
         <StyledText variant="body" style={{ color: theme.danger }}>Order not found.</StyledText>
-        <TouchableOpacity style={{ marginTop: 20 }} onPress={() => router.back()}>
+        {/* 🚀 FIXED: Hardwired to Orders List */}
+        <TouchableOpacity style={{ marginTop: 20 }} onPress={() => router.push('/(admin)/orders')}>
           <StyledText variant="body" style={{ color: theme.primary }}>Go Back</StyledText>
         </TouchableOpacity>
       </View>
@@ -93,7 +94,8 @@ export default function OrderDetailsScreen() {
       
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        {/* 🚀 FIXED: Hardwired to Orders List */}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(admin)/orders')}>
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>

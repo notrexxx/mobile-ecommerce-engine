@@ -1,7 +1,7 @@
-import React from 'react';
-import { Tabs, Redirect } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme, Platform } from 'react-native';
+import { useColorScheme, Platform, View } from 'react-native';
 
 import { lightTheme, darkTheme } from '../../src/theme/theme';
 import { useAuth } from '../../src/context/AuthContext';
@@ -10,9 +10,22 @@ export default function AdminLayout() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
   const { user } = useAuth();
+  const router = useRouter();
+  
+  // 🚀 THE LOGOUT FIX: Cleanly eject unauthorized users to the Storefront
+  useEffect(() => {
+    if (!user || user.role !== 'admin') {
+      if (Platform.OS === 'web') {
+        window.location.href = '/';
+      } else {
+        setTimeout(() => router.replace('/'), 10);
+      }
+    }
+  }, [user]);
 
+  // If logged out, render an empty view to instantly kill the CMS UI and prevent loops
   if (!user || user.role !== 'admin') {
-    return <Redirect href="/" />;
+    return <View style={{ flex: 1, backgroundColor: theme.background }} />;
   }
 
   return (
@@ -29,8 +42,9 @@ export default function AdminLayout() {
         tabBarInactiveTintColor: theme.subtext,
       }}
     >
+      {/* 🚀 THE COLLISION FIX: This now points to your newly renamed dashboard.tsx file! */}
       <Tabs.Screen
-        name="index"
+        name="dashboard" 
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => <Ionicons name="pie-chart" size={size} color={color} />,
@@ -50,18 +64,14 @@ export default function AdminLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="cube" size={size} color={color} />,
         }}
       />
-      
-      {/* 🚀 THE FIX: We added your product-form to the Navbar with a sleek icon! */}
       <Tabs.Screen
         name="product-form"
         options={{
           title: 'New Product',
+          href: '/(admin)/product-form?id=', 
           tabBarIcon: ({ color, size }) => <Ionicons name="add-circle" size={size} color={color} />,
         }}
       />
-
-      {/* Hidden Screens */}
-      <Tabs.Screen name="[id]" options={{ href: null }} />
       <Tabs.Screen name="order-details" options={{ href: null }} />
     </Tabs>
   );

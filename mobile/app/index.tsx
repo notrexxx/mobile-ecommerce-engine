@@ -221,7 +221,7 @@ export default function HomeScreen() {
             
             {isAdmin && (
               <TouchableOpacity
-                onPress={() => handleAdminNav('/(admin)')}
+                onPress={() => handleAdminNav('/(admin)/dashboard')} 
                 style={styles.authButtonWrapper}
               >
                 <Ionicons name="pie-chart-outline" size={24} color={theme.text} />

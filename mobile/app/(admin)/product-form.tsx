@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, useColorScheme, Platform, TouchableOpacity, KeyboardAvoidingView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, useColorScheme, Platform, TouchableOpacity, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
@@ -13,34 +13,71 @@ import { supabase } from '../../src/utils/supabase';
 
 export default function AdminProductFormScreen() {
   const router = useRouter();
-  
-  // Your logic to check if we are editing an existing product
-  const { productStr } = useLocalSearchParams();
-  const editingProduct = productStr ? JSON.parse(productStr as string) : null;
+  const { id } = useLocalSearchParams();
+  const isEditing = !!id; 
 
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isFetching, setIsFetching] = useState(isEditing);
   
-  // Your existing state fields
-  const [name, setName] = useState(editingProduct?.name || '');
-  const [category, setCategory] = useState(editingProduct?.category || '');
-  const [price, setPrice] = useState(editingProduct?.price?.toString() || '');
-  const [stock, setStock] = useState(editingProduct?.stock?.toString() || '10');
-  const [description, setDescription] = useState(editingProduct?.description || '');
-  const [imageUrl, setImageUrl] = useState(editingProduct?.imageUrl || editingProduct?.image_url || '');
+  const [name, setName] = useState('');
+  const [category, setCategory] = useState('');
+  const [price, setPrice] = useState('');
+  const [stock, setStock] = useState('10');
+  const [description, setDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+
+  // 🚀 THE FIX: Use Focus Effect to safely wipe memory without triggering render loops
+  useFocusEffect(
+    useCallback(() => {
+      if (!id) {
+        setName('');
+        setCategory('');
+        setPrice('');
+        setStock('10');
+        setDescription('');
+        setImageUrl('');
+        setIsFetching(false);
+      }
+    }, [id])
+  );
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const fetchProductDetails = async () => {
+      try {
+        const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+        if (error) throw error;
+
+        if (data) {
+          setName(data.name || '');
+          setCategory(data.category || '');
+          setPrice(data.price?.toString() || '');
+          setStock(data.stock?.toString() || '0');
+          setDescription(data.description || '');
+          setImageUrl(data.imageUrl || data.image_url || '');
+        }
+      } catch (err: any) {
+        Toast.show({ type: 'error', text1: 'Load Failed', text2: 'Could not fetch product details.' });
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    fetchProductDetails();
+  }, [id, isEditing]);
 
   const handleSaveProduct = async () => {
-    // 1. Validation
     if (!name || !price || !imageUrl || !category || !stock) {
       return Toast.show({ type: 'error', text1: 'Missing Fields', text2: 'Please fill out all required fields.' });
     }
 
     if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsLoading(true);
+    setIsSaving(true);
 
-    // 2. Format Data exactly how your database expects it
     const productData = {
       name,
       description,
@@ -51,40 +88,43 @@ export default function AdminProductFormScreen() {
     };
 
     try {
-      // 3. Your dynamic Create OR Update logic
-      if (editingProduct) {
-        const { error } = await supabase.from('products').update(productData).eq('id', editingProduct.id);
+      if (isEditing) {
+        const { error } = await supabase.from('products').update(productData).eq('id', id);
         if (error) throw error;
-        Toast.show({ type: 'success', text1: 'Product Updated' });
+        Toast.show({ type: 'success', text1: 'Product Updated', text2: `${name} has been updated.` });
       } else {
         const { error } = await supabase.from('products').insert([productData]);
         if (error) throw error;
-        Toast.show({ type: 'success', text1: 'Product Created' });
+        Toast.show({ type: 'success', text1: 'Product Created', text2: `${name} has been added to inventory.` });
       }
       
-      router.back();
+      router.push('/(admin)/products');
     } catch (error: any) {
-      console.error("SUPABASE SAVE ERROR: ", error);
       Toast.show({ type: 'error', text1: 'Save Failed', text2: error.message });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
+  if (isFetching) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.background }}>
-      
-      {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(admin)/products')}>
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <StyledText variant="h2">{editingProduct ? 'Edit Product' : 'Add New Product'}</StyledText>
+        <StyledText variant="h2">{isEditing ? 'Edit Product' : 'Add New Product'}</StyledText>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <StyledText variant="h3" style={{ marginBottom: 20 }}>Core Details</StyledText>
           
@@ -100,7 +140,7 @@ export default function AdminProductFormScreen() {
               <PremiumInput placeholder="0.00" keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
             </View>
             <View style={{ flex: 1, marginLeft: 8 }}>
-              <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8, marginLeft: 4 }}>Initial Stock *</StyledText>
+              <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8, marginLeft: 4 }}>Total Stock *</StyledText>
               <PremiumInput placeholder="10" keyboardType="number-pad" value={stock} onChangeText={setStock} />
             </View>
           </View>
@@ -113,22 +153,12 @@ export default function AdminProductFormScreen() {
           <PremiumInput placeholder="https://example.com/image.png" value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" />
 
           <StyledText variant="caption" style={{ color: theme.subtext, marginBottom: 8, marginLeft: 4 }}>Description</StyledText>
-          <PremiumInput 
-            placeholder="Write a compelling description..." 
-            value={description} 
-            onChangeText={setDescription} 
-            multiline 
-          />
+          <PremiumInput placeholder="Write a compelling description..." value={description} onChangeText={setDescription} multiline />
         </View>
 
         <View style={{ paddingVertical: 24 }}>
-          <PremiumButton 
-            title={editingProduct ? "Update Product" : "Publish Product"} 
-            onPress={handleSaveProduct} 
-            isLoading={isLoading} 
-          />
+          <PremiumButton title={isEditing ? "Update Product" : "Publish Product"} onPress={handleSaveProduct} isLoading={isSaving} />
         </View>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );

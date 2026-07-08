@@ -1,15 +1,19 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, useColorScheme, ScrollView, ActivityIndicator, useWindowDimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, useColorScheme, ScrollView, ActivityIndicator, useWindowDimensions, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
+import Toast from 'react-native-toast-message';
+import * as Haptics from 'expo-haptics';
 
 import { lightTheme, darkTheme } from '../../src/theme/theme';
 import StyledText from '../../src/components/StyledText';
 import { supabase } from '../../src/utils/supabase';
+import { useAuth } from '../../src/context/AuthContext';
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { logout } = useAuth();
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
   const { width } = useWindowDimensions();
@@ -21,38 +25,24 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const { data: stockData, error: stockError } = await supabase
-        .from('products')
-        .select('*')
-        .lt('stock', 10)
-        .order('stock', { ascending: true });
-        
-      if (!stockError && stockData) setLowStockProducts(stockData);
+      const { data: stockData } = await supabase.from('products').select('*').lt('stock', 10).order('stock', { ascending: true });
+      if (stockData) setLowStockProducts(stockData);
 
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select('totalAmount, createdAt')
-        .order('createdAt', { ascending: false })
-        .limit(50);
-
-      if (!orderError && orderData) {
-        const revenue = orderData.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
-        setTotalRevenue(revenue);
-
+      const { data: orderData } = await supabase.from('orders').select('totalAmount, createdAt').order('createdAt', { ascending: false }).limit(50);
+      if (orderData) {
+        setTotalRevenue(orderData.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0));
         const analyticalData = orderData.slice(0, 6).map((order) => {
           const dateObj = new Date(order.createdAt);
-          const formattedDate = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-          return { label: formattedDate, value: Number(order.totalAmount || 0) };
+          return { label: dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), value: Number(order.totalAmount || 0) };
         }).reverse();
 
         while (analyticalData.length < 6) {
           analyticalData.unshift({ label: '-', value: 0 });
         }
-
         setSalesHistory(analyticalData);
       }
     } catch (error) {
-      console.error("Dashboard calculation error:", error);
+      console.error("Dashboard error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -60,11 +50,20 @@ export default function AdminDashboard() {
 
   useFocusEffect(useCallback(() => { fetchDashboardData(); }, []));
 
+  // 🚀 THE FIX: Removed router command to prevent infinite loop. Layout handles it!
+  const handleLogout = async () => {
+    if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await logout();
+      Toast.show({ type: 'success', text1: 'Logged Out', text2: 'Securely signed out of the CMS.' });
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Logout Failed', text2: error.message });
+    }
+  };
+
   if (isLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
+      <View style={[styles.center, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={theme.primary} /></View>
     );
   }
 
@@ -79,29 +78,33 @@ export default function AdminDashboard() {
           <StyledText variant="h1">Command Center</StyledText>
           <StyledText variant="body" style={{ color: theme.subtext, marginTop: 8 }}>Store metrics and inventory control hub</StyledText>
         </View>
-        {/* 🚀 FIXED: Removed the top right button you asked to erase */}
+
+        <View style={styles.headerIcons}>
+          {/* 🚀 THE FIX: Use replace to cleanly escape the nested tabs */}
+          <TouchableOpacity onPress={() => router.replace('/')} style={[styles.pillBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+            <Ionicons name="storefront-outline" size={18} color={theme.text} />
+            <StyledText variant="body" style={[styles.pillText, { color: theme.text }]}>Store</StyledText>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} style={[styles.pillBtn, { borderColor: theme.danger + '40', backgroundColor: theme.danger + '10' }]}>
+            <Ionicons name="log-out-outline" size={18} color={theme.danger} />
+            <StyledText variant="body" style={[styles.pillText, { color: theme.danger }]}>Logout</StyledText>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* CORE METRIC BLOCK */}
       <View style={styles.metricsRow}>
         <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={[styles.iconBox, { backgroundColor: '#34C75920' }]}>
-            <Ionicons name="cash-outline" size={24} color="#34C759" />
-          </View>
+          <View style={[styles.iconBox, { backgroundColor: '#34C75920' }]}><Ionicons name="cash-outline" size={24} color="#34C759" /></View>
           <StyledText variant="caption" style={{ color: theme.subtext, marginTop: 12 }}>Total Revenue</StyledText>
           <StyledText variant="h2" style={{ marginTop: 4 }}>${totalRevenue.toFixed(2)}</StyledText>
         </View>
-
         <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={[styles.iconBox, { backgroundColor: '#FF950020' }]}>
-            <Ionicons name="warning-outline" size={24} color="#FF9500" />
-          </View>
+          <View style={[styles.iconBox, { backgroundColor: '#FF950020' }]}><Ionicons name="warning-outline" size={24} color="#FF9500" /></View>
           <StyledText variant="caption" style={{ color: theme.subtext, marginTop: 12 }}>Action Required</StyledText>
           <StyledText variant="h2" style={{ marginTop: 4 }}>{lowStockProducts.length} Alerts</StyledText>
         </View>
       </View>
 
-      {/* BULLETPROOF NATIVE CHART ENGINE */}
       <View style={styles.section}>
         <StyledText variant="h3" style={styles.sectionTitle}>Recent Volume Performance</StyledText>
         <View style={[styles.chartContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -111,10 +114,7 @@ export default function AdminDashboard() {
               return (
                 <View key={index} style={styles.chartColumn}>
                   <View style={styles.barValueWrapper}>
-                    {/* 🚀 FIXED: The Text Node Crash is solved using ? : null */}
-                    {item.value > 0 ? (
-                      <StyledText variant="caption" style={styles.barValueText}>${Math.round(item.value)}</StyledText>
-                    ) : null}
+                    {item.value > 0 ? <StyledText variant="caption" style={styles.barValueText}>${Math.round(item.value)}</StyledText> : null}
                   </View>
                   <View style={[styles.chartBar, { height: barHeightPercentage as any, backgroundColor: theme.primary }]} />
                   <StyledText variant="caption" style={[styles.chartLabel, { color: theme.subtext }]} numberOfLines={1}>{item.label}</StyledText>
@@ -125,14 +125,10 @@ export default function AdminDashboard() {
         </View>
       </View>
 
-      {/* DEDICATED INVENTORY WATCHLIST */}
       <View style={styles.section}>
         <View style={styles.rowBetween}>
           <StyledText variant="h3" style={styles.sectionTitle}>Inventory Watchlist</StyledText>
-          {/* 🚀 FIXED: The Text Node Crash is solved using ? : null */}
-          {lowStockProducts.length > 0 ? (
-            <StyledText variant="caption" style={{ color: '#FF3B30', fontWeight: '700' }}>Critical</StyledText>
-          ) : null}
+          {lowStockProducts.length > 0 ? <StyledText variant="caption" style={{ color: '#FF3B30', fontWeight: '700' }}>Critical</StyledText> : null}
         </View>
 
         {lowStockProducts.length === 0 ? (
@@ -142,17 +138,9 @@ export default function AdminDashboard() {
           </View>
         ) : (
           lowStockProducts.map((product) => (
-            <TouchableOpacity 
-              key={product.id} 
-              style={[styles.alertCard, { backgroundColor: theme.surface, borderColor: '#FF3B3030' }]}
-              onPress={() => router.push('/(admin)/products')}
-            >
+            <TouchableOpacity key={product.id} style={[styles.alertCard, { backgroundColor: theme.surface, borderColor: '#FF3B3030' }]} onPress={() => router.push('/(admin)/products')}>
               <View style={styles.alertImageContainer}>
-                {product.imageUrl ? (
-                  <Image source={{ uri: product.imageUrl }} style={styles.alertImage} contentFit="cover" />
-                ) : (
-                  <Ionicons name="cube-outline" size={24} color={theme.subtext} />
-                )}
+                {product.imageUrl ? <Image source={{ uri: product.imageUrl }} style={styles.alertImage} contentFit="cover" /> : <Ionicons name="cube-outline" size={24} color={theme.subtext} />}
               </View>
               <View style={styles.alertInfo}>
                 <StyledText variant="body" style={{ fontWeight: '600' }} numberOfLines={1}>{product.name}</StyledText>
@@ -163,7 +151,6 @@ export default function AdminDashboard() {
           ))
         )}
       </View>
-
     </ScrollView>
   );
 }
@@ -171,8 +158,11 @@ export default function AdminDashboard() {
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1 },
-  content: { padding: 24, paddingTop: 60, paddingBottom: 100, maxWidth: 848, width: '100%', alignSelf: 'center' },
-  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 32 },
+  content: { padding: 24, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 100, maxWidth: 848, width: '100%', alignSelf: 'center' },
+  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, flexWrap: 'wrap', gap: 16 },
+  headerIcons: { flexDirection: 'row', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
+  pillBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1 },
+  pillText: { fontWeight: '700', fontSize: 13, marginLeft: 6 },
   metricsRow: { flexDirection: 'row', gap: 16, marginBottom: 32 },
   metricCard: { flex: 1, padding: 20, borderRadius: 20, borderWidth: 1 },
   iconBox: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
